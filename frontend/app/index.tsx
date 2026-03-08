@@ -1,265 +1,362 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Image,
-  ActivityIndicator,
   Animated,
   Dimensions,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-
-// Guest mode child ID for unauthenticated users
-const GUEST_CHILD_ID = 'guest_child';
+const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasChild, setHasChild] = useState(false);
-  const bounceAnim = React.useRef(new Animated.Value(0)).current;
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    checkExistingChild();
-    startBounceAnimation();
-  }, []);
+    // Entrance animations
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  const startBounceAnimation = () => {
+    // Continuous bounce
     Animated.loop(
       Animated.sequence([
-        Animated.timing(bounceAnim, { toValue: -15, duration: 1000, useNativeDriver: true }),
-        Animated.timing(bounceAnim, { toValue: 0, duration: 1000, useNativeDriver: true }),
+        Animated.timing(bounceAnim, { toValue: -12, duration: 1200, useNativeDriver: true }),
+        Animated.timing(bounceAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
       ])
     ).start();
-  };
+  }, []);
 
-  const checkExistingChild = async () => {
-    try {
-      const childData = await AsyncStorage.getItem('currentChild');
-      setHasChild(!!childData);
-    } catch (error) {
-      console.log('No existing child');
-    }
-  };
+  const features = [
+    { icon: 'chatbubbles', color: '#FF6B6B', bg: '#FFE8E8', label: 'Chat' },
+    { icon: 'mic', color: '#4ECDC4', bg: '#E0F7F5', label: 'Voice' },
+    { icon: 'book', color: '#FFD93D', bg: '#FFF8E0', label: 'Learn' },
+    { icon: 'shield-checkmark', color: '#6C5CE7', bg: '#EDE9FE', label: 'Safe' },
+  ];
 
-  const handleStartChat = async () => {
-    // Start chat immediately in guest mode
-    router.push('/chat');
-  };
-
-  const handleParentLogin = () => {
-    router.push('/onboarding');
-  };
+  const teachers = [
+    { name: 'Apostle Selman', color: '#FF6B6B', emoji: '🎤' },
+    { name: 'Stephanie Ike', color: '#4ECDC4', emoji: '💜' },
+    { name: 'Steven Furtick', color: '#FFD93D', emoji: '🔥' },
+    { name: 'Priscilla Shirer', color: '#6C5CE7', emoji: '⚔️' },
+  ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Logo Section */}
-        <Animated.View style={[styles.logoContainer, { transform: [{ translateY: bounceAnim }] }]}>
-          <Text style={styles.logoEmoji}>📖</Text>
-          <Text style={styles.logoText}>Bible Buddy</Text>
-          <Text style={styles.tagline}>Your friendly Bible companion!</Text>
-        </Animated.View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <SafeAreaView edges={['top']}>
+          <Animated.View style={[styles.logoContainer, { transform: [{ translateY: bounceAnim }, { scale: scaleAnim }], opacity: fadeAnim }]}>
+            <View style={styles.logoCircle}>
+              <Text style={styles.logoEmoji}>📖</Text>
+            </View>
+            <Text style={styles.logoText}>Bible Buddy</Text>
+            <Text style={styles.tagline}>Your Friendly Faith Companion! ✨</Text>
+          </Animated.View>
+        </SafeAreaView>
+      </LinearGradient>
 
-        {/* Description */}
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.description}>
-            Ask me anything about God, Jesus, or the Bible!{'\n'}
-            I'm here to help you learn and grow in faith.
-          </Text>
-        </View>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          {/* Welcome Card */}
+          <View style={styles.welcomeCard}>
+            <Text style={styles.welcomeTitle}>👋 Hey there, friend!</Text>
+            <Text style={styles.welcomeText}>
+              I'm here to help you learn about God, Jesus, and the Bible in a fun way!
+            </Text>
+          </View>
 
-        {/* Features */}
-        <View style={styles.featuresContainer}>
-          <View style={styles.featureItem}>
-            <Ionicons name="chatbubbles" size={24} color="#4A90D9" />
-            <Text style={styles.featureText}>Chat with Bible Buddy</Text>
+          {/* Features Grid */}
+          <View style={styles.featuresGrid}>
+            {features.map((feature, index) => (
+              <View key={index} style={[styles.featureCard, { backgroundColor: feature.bg }]}>
+                <View style={[styles.featureIcon, { backgroundColor: feature.color }]}>
+                  <Ionicons name={feature.icon as any} size={24} color="#fff" />
+                </View>
+                <Text style={[styles.featureLabel, { color: feature.color }]}>{feature.label}</Text>
+              </View>
+            ))}
           </View>
-          <View style={styles.featureItem}>
-            <Ionicons name="mic" size={24} color="#4A90D9" />
-            <Text style={styles.featureText}>Voice conversations</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Ionicons name="book" size={24} color="#4A90D9" />
-            <Text style={styles.featureText}>Learn Bible stories</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Ionicons name="shield-checkmark" size={24} color="#4A90D9" />
-            <Text style={styles.featureText}>Safe for kids</Text>
-          </View>
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonsContainer}>
+          {/* Main CTA Buttons */}
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={handleStartChat}
-            disabled={isLoading}
+            onPress={() => router.push('/chat')}
+            activeOpacity={0.9}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
-                <Text style={styles.primaryButtonText}>Start Chatting!</Text>
-              </>
-            )}
+            <LinearGradient
+              colors={['#FF6B6B', '#FF8E53']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.buttonGradient}
+            >
+              <Ionicons name="chatbubble-ellipses" size={28} color="#fff" />
+              <Text style={styles.primaryButtonText}>Start Chatting!</Text>
+              <Ionicons name="arrow-forward-circle" size={28} color="#fff" />
+            </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={handleParentLogin}
+            onPress={() => router.push('/onboarding')}
+            activeOpacity={0.8}
           >
-            <Ionicons name="people" size={20} color="#4A90D9" />
-            <Text style={styles.secondaryButtonText}>Parent Login</Text>
+            <LinearGradient
+              colors={['#4ECDC4', '#44A08D']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.buttonGradient}
+            >
+              <Ionicons name="person-add" size={24} color="#fff" />
+              <Text style={styles.secondaryButtonText}>Set Up Profile</Text>
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
 
-        {/* Featured Teachers */}
-        <View style={styles.teachersSection}>
-          <Text style={styles.teachersTitle}>Wisdom from:</Text>
-          <View style={styles.teachersList}>
-            {['Apostle Selman', 'Stephanie Ike', 'Steven Furtick', 'Priscilla Shirer'].map((name, i) => (
-              <View key={i} style={styles.teacherChip}>
-                <Text style={styles.teacherName}>{name}</Text>
-              </View>
-            ))}
+          <TouchableOpacity
+            style={styles.dashboardButton}
+            onPress={() => router.push('/parent-dashboard')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="people" size={22} color="#6C5CE7" />
+            <Text style={styles.dashboardButtonText}>Parent Dashboard</Text>
+            <Ionicons name="chevron-forward" size={20} color="#6C5CE7" />
+          </TouchableOpacity>
+
+          {/* Teachers Section */}
+          <View style={styles.teachersSection}>
+            <Text style={styles.sectionTitle}>✨ Wisdom from Amazing Teachers</Text>
+            <View style={styles.teachersGrid}>
+              {teachers.map((teacher, index) => (
+                <View key={index} style={styles.teacherChip}>
+                  <Text style={styles.teacherEmoji}>{teacher.emoji}</Text>
+                  <Text style={styles.teacherName}>{teacher.name}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
-      </View>
-    </SafeAreaView>
+
+          {/* Bottom Spacer */}
+          <View style={{ height: 30 }} />
+        </Animated.View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: '#F8F9FF',
   },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 20,
+  headerGradient: {
+    paddingBottom: 30,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    paddingVertical: 20,
+  },
+  logoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   logoEmoji: {
-    fontSize: 80,
-    marginBottom: 8,
+    fontSize: 56,
   },
   logoText: {
     fontSize: 36,
-    fontWeight: '700',
-    color: '#4A90D9',
+    fontWeight: '800',
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   tagline: {
     fontSize: 16,
-    color: '#666',
-    marginTop: 4,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 6,
+    fontWeight: '500',
   },
-  descriptionContainer: {
-    marginBottom: 24,
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+    marginTop: -20,
   },
-  description: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#555',
-    lineHeight: 24,
-  },
-  featuresContainer: {
-    width: '100%',
-    marginBottom: 24,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  welcomeCard: {
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  welcomeTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2D3436',
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
   },
-  featureText: {
-    marginLeft: 12,
+  welcomeText: {
     fontSize: 15,
-    color: '#333',
+    color: '#636E72',
+    lineHeight: 22,
   },
-  buttonsContainer: {
-    width: '100%',
+  featuresGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 24,
+  },
+  featureCard: {
+    width: (width - 60) / 4,
+    aspectRatio: 1,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  featureIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  featureLabel: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   primaryButton: {
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4A90D9',
     paddingVertical: 18,
-    borderRadius: 16,
-    marginBottom: 12,
-    shadowColor: '#4A90D9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingHorizontal: 24,
+    gap: 12,
   },
   primaryButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  secondaryButton: {
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#4ECDC4',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  secondaryButtonText: {
+    color: '#fff',
+    fontSize: 17,
     fontWeight: '600',
     marginLeft: 10,
   },
-  secondaryButton: {
+  dashboardButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginBottom: 24,
     borderWidth: 2,
-    borderColor: '#4A90D9',
+    borderColor: '#6C5CE7',
+    gap: 8,
   },
-  secondaryButtonText: {
-    color: '#4A90D9',
+  dashboardButtonText: {
+    color: '#6C5CE7',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
+    flex: 1,
+    textAlign: 'center',
   },
   teachersSection: {
-    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  teachersTitle: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 8,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2D3436',
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  teachersList: {
+  teachersGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 6,
+    gap: 10,
   },
   teacherChip: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+  },
+  teacherEmoji: {
+    fontSize: 16,
   },
   teacherName: {
-    fontSize: 11,
-    color: '#666',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#636E72',
   },
 });
