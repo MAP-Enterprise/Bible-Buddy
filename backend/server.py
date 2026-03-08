@@ -1346,6 +1346,97 @@ async def get_session(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
     return session
 
+
+# ==================== DAILY VERSE ====================
+
+DAILY_VERSES = [
+    {"verse": "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.", "reference": "John 3:16", "theme": "love"},
+    {"verse": "I can do all this through him who gives me strength.", "reference": "Philippians 4:13", "theme": "strength"},
+    {"verse": "The Lord is my shepherd, I lack nothing.", "reference": "Psalm 23:1", "theme": "trust"},
+    {"verse": "Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.", "reference": "Joshua 1:9", "theme": "courage"},
+    {"verse": "Trust in the Lord with all your heart and lean not on your own understanding.", "reference": "Proverbs 3:5", "theme": "trust"},
+    {"verse": "For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.", "reference": "Jeremiah 29:11", "theme": "hope"},
+    {"verse": "The Lord is my light and my salvation—whom shall I fear?", "reference": "Psalm 27:1", "theme": "courage"},
+    {"verse": "And we know that in all things God works for the good of those who love him.", "reference": "Romans 8:28", "theme": "faith"},
+    {"verse": "Be kind and compassionate to one another, forgiving each other, just as in Christ God forgave you.", "reference": "Ephesians 4:32", "theme": "kindness"},
+    {"verse": "The fruit of the Spirit is love, joy, peace, forbearance, kindness, goodness, faithfulness, gentleness and self-control.", "reference": "Galatians 5:22-23", "theme": "character"},
+    {"verse": "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God.", "reference": "Philippians 4:6", "theme": "prayer"},
+    {"verse": "Have I not commanded you? Be strong and courageous. Do not be afraid; do not be discouraged.", "reference": "Joshua 1:9", "theme": "courage"},
+    {"verse": "Your word is a lamp for my feet, a light on my path.", "reference": "Psalm 119:105", "theme": "wisdom"},
+    {"verse": "Love is patient, love is kind. It does not envy, it does not boast, it is not proud.", "reference": "1 Corinthians 13:4", "theme": "love"},
+    {"verse": "The Lord is close to the brokenhearted and saves those who are crushed in spirit.", "reference": "Psalm 34:18", "theme": "comfort"},
+    {"verse": "But those who hope in the Lord will renew their strength. They will soar on wings like eagles.", "reference": "Isaiah 40:31", "theme": "hope"},
+    {"verse": "God is our refuge and strength, an ever-present help in trouble.", "reference": "Psalm 46:1", "theme": "strength"},
+    {"verse": "I praise you because I am fearfully and wonderfully made; your works are wonderful.", "reference": "Psalm 139:14", "theme": "identity"},
+    {"verse": "Cast all your anxiety on him because he cares for you.", "reference": "1 Peter 5:7", "theme": "comfort"},
+    {"verse": "Whatever you do, work at it with all your heart, as working for the Lord.", "reference": "Colossians 3:23", "theme": "character"},
+    {"verse": "The Lord your God is with you, the Mighty Warrior who saves. He will take great delight in you.", "reference": "Zephaniah 3:17", "theme": "love"},
+    {"verse": "Give thanks to the Lord, for he is good; his love endures forever.", "reference": "Psalm 107:1", "theme": "gratitude"},
+    {"verse": "But the Lord is faithful, and he will strengthen you and protect you from the evil one.", "reference": "2 Thessalonians 3:3", "theme": "faith"},
+    {"verse": "Children, obey your parents in the Lord, for this is right.", "reference": "Ephesians 6:1", "theme": "obedience"},
+    {"verse": "A friend loves at all times, and a brother is born for a time of adversity.", "reference": "Proverbs 17:17", "theme": "friendship"},
+    {"verse": "The heavens declare the glory of God; the skies proclaim the work of his hands.", "reference": "Psalm 19:1", "theme": "creation"},
+    {"verse": "Let the peace of Christ rule in your hearts, since as members of one body you were called to peace.", "reference": "Colossians 3:15", "theme": "peace"},
+    {"verse": "In the beginning God created the heavens and the earth.", "reference": "Genesis 1:1", "theme": "creation"},
+    {"verse": "Jesus said, 'Let the little children come to me, and do not hinder them, for the kingdom of heaven belongs to such as these.'", "reference": "Matthew 19:14", "theme": "love"},
+    {"verse": "This is the day that the Lord has made; let us rejoice and be glad in it.", "reference": "Psalm 118:24", "theme": "joy"},
+    {"verse": "So do not fear, for I am with you; do not be dismayed, for I am your God.", "reference": "Isaiah 41:10", "theme": "courage"},
+]
+
+def get_todays_verse_index() -> int:
+    """Get deterministic verse index based on current date"""
+    today = datetime.now(timezone.utc).date()
+    day_of_year = today.timetuple().tm_yday
+    return day_of_year % len(DAILY_VERSES)
+
+@api_router.get("/verse-of-the-day")
+async def get_verse_of_the_day(age_tier: str = "7-9"):
+    """Get the daily Bible verse with an age-appropriate AI explanation"""
+    verse_index = get_todays_verse_index()
+    verse_data = DAILY_VERSES[verse_index]
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Check cache in MongoDB
+    cached = await db.daily_verses.find_one(
+        {"date": today_str, "age_tier": age_tier},
+        {"_id": 0}
+    )
+    if cached:
+        return cached
+
+    # Generate age-appropriate explanation with AI
+    explanation = ""
+    try:
+        age_labels = {"4-6": "a 4-6 year old child", "7-9": "a 7-9 year old child", "10-12": "a 10-12 year old", "13-18": "a teenager"}
+        age_label = age_labels.get(age_tier, "a child")
+
+        chat_client = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"votd_{today_str}_{age_tier}",
+            system_message=f"You are Bible Buddy, a warm and loving Bible guide for children. Explain Bible verses in a way that {age_label} can understand. Keep it to 2-3 short, encouraging sentences. Be warm and use simple language."
+        ).with_model("openai", "gpt-4o")
+
+        prompt = f'Explain this Bible verse for {age_label}: "{verse_data["verse"]}" ({verse_data["reference"]})'
+        explanation = await chat_client.send_message(UserMessage(text=prompt))
+    except Exception as e:
+        logger.error(f"VOTD AI error: {e}")
+        explanation = f"This verse reminds us about God's {verse_data['theme']}. Take a moment to think about what it means to you!"
+
+    result = {
+        "date": today_str,
+        "verse": verse_data["verse"],
+        "reference": verse_data["reference"],
+        "theme": verse_data["theme"],
+        "age_tier": age_tier,
+        "explanation": explanation,
+    }
+
+    # Cache in MongoDB
+    await db.daily_verses.insert_one({**result, "created_at": datetime.now(timezone.utc)})
+    # Re-fetch without _id
+    return result
+
+
 # Include router
 app.include_router(api_router)
 

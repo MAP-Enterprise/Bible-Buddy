@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,42 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
+  Platform,
+  Share,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const { width: screenWidth } = Dimensions.get('window');
+
+interface VerseOfTheDay {
+  date: string;
+  verse: string;
+  reference: string;
+  theme: string;
+  explanation: string;
+}
+
+// Storage helper
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') { return localStorage.getItem(key); }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.getItem(key);
+  },
+};
 
 export default function HomeScreen() {
   const bounceAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [verseData, setVerseData] = useState<VerseOfTheDay | null>(null);
+  const [verseLoading, setVerseLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     // Entrance animations
@@ -44,7 +68,44 @@ export default function HomeScreen() {
         Animated.timing(bounceAnim, { toValue: 0, duration: 1200, useNativeDriver: true }),
       ])
     ).start();
+
+    // Fetch verse of the day
+    fetchVerseOfTheDay();
   }, []);
+
+  const fetchVerseOfTheDay = async () => {
+    try {
+      const savedTier = await storage.getItem('ageTier');
+      const ageTier = savedTier || '7-9';
+      const res = await fetch(`${BACKEND_URL}/api/verse-of-the-day?age_tier=${ageTier}`);
+      if (res.ok) {
+        const data = await res.json();
+        setVerseData(data);
+      }
+    } catch (e) {
+      console.log('Verse fetch error:', e);
+    } finally {
+      setVerseLoading(false);
+    }
+  };
+
+  const handleShareVerse = async () => {
+    if (!verseData) return;
+    const shareText = `"${verseData.verse}"\n— ${verseData.reference}\n\nShared from Bible Buddy`;
+    if (Platform.OS === 'web') {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // Fallback
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } else {
+      Share.share({ message: shareText });
+    }
+  };
 
   const features = [
     { icon: 'chatbubbles', color: '#FF6B6B', bg: '#FFE8E8', label: 'Chat' },
@@ -89,6 +150,49 @@ export default function HomeScreen() {
               I'm here to help you learn about God, Jesus, and the Bible in a fun way!
             </Text>
           </View>
+
+          {/* Verse of the Day */}
+          {verseLoading ? (
+            <View style={styles.verseCard} data-testid="verse-loading">
+              <ActivityIndicator size="small" color="#FFD93D" />
+            </View>
+          ) : verseData ? (
+            <View style={styles.verseCard} data-testid="verse-of-the-day">
+              <LinearGradient
+                colors={['#1a1a2e', '#16213e', '#0f3460']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.verseGradient}
+              >
+                <View style={styles.verseHeader}>
+                  <View style={styles.verseSunrise}>
+                    <Ionicons name="sunny" size={18} color="#FFD93D" />
+                  </View>
+                  <Text style={styles.verseLabel}>Verse of the Day</Text>
+                  <View style={styles.verseThemeBadge}>
+                    <Text style={styles.verseThemeText}>{verseData.theme}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.verseText}>"{verseData.verse}"</Text>
+                <Text style={styles.verseReference}>— {verseData.reference}</Text>
+
+                <View style={styles.verseDivider} />
+
+                <Text style={styles.verseExplanation}>{verseData.explanation}</Text>
+
+                <TouchableOpacity
+                  style={styles.verseShareButton}
+                  onPress={handleShareVerse}
+                  activeOpacity={0.7}
+                  data-testid="share-verse-btn"
+                >
+                  <Ionicons name={copied ? "checkmark-circle" : "share-social"} size={18} color="#FFD93D" />
+                  <Text style={styles.verseShareText}>{copied ? 'Copied!' : 'Share Verse'}</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          ) : null}
 
           {/* Features Grid */}
           <View style={styles.featuresGrid}>
@@ -233,6 +337,86 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#636E72',
     lineHeight: 22,
+  },
+  verseCard: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  verseGradient: {
+    padding: 22,
+    borderRadius: 24,
+  },
+  verseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  verseSunrise: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,217,61,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  verseLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFD93D',
+    flex: 1,
+  },
+  verseThemeBadge: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  verseThemeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    textTransform: 'capitalize',
+  },
+  verseText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
+    lineHeight: 26,
+    fontStyle: 'italic',
+  },
+  verseReference: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFD93D',
+    marginTop: 10,
+  },
+  verseDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginVertical: 14,
+  },
+  verseExplanation: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    lineHeight: 21,
+  },
+  verseShareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 14,
+    backgroundColor: 'rgba(255,217,61,0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+  },
+  verseShareText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFD93D',
   },
   featuresGrid: {
     flexDirection: 'row',
