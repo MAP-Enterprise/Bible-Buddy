@@ -17,27 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { storage } from '../helpers/storage';
 
 // Removed Dimensions.get usage for web compatibility
-
-// Storage helper for cross-platform support
-const storage = {
-  async getItem(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
-    }
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    return AsyncStorage.getItem(key);
-  },
-  async setItem(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-      return;
-    }
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    return AsyncStorage.setItem(key, value);
-  },
-};
 
 const AGE_TIERS = [
   { value: '4-6', label: '4-6 years', emoji: '🧒', desc: 'Preschool', color: '#FF6B6B', bg: '#FFE8E8' },

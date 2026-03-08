@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { storage } from '../helpers/storage';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const { width: screenWidth } = Dimensions.get('window');
@@ -27,15 +28,6 @@ interface VerseOfTheDay {
   theme: string;
   explanation: string;
 }
-
-// Storage helper
-const storage = {
-  async getItem(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') { return localStorage.getItem(key); }
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    return AsyncStorage.getItem(key);
-  },
-};
 
 export default function HomeScreen() {
   const bounceAnim = useRef(new Animated.Value(0)).current;

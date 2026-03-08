@@ -20,24 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const { width } = Dimensions.get('window');
 
-// Storage helper for cross-platform support
-const storage = {
-  async getItem(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
-    }
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    return AsyncStorage.getItem(key);
-  },
-  async setItem(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-      return;
-    }
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    return AsyncStorage.setItem(key, value);
-  },
-};
+import { storage } from '../helpers/storage';
 
 interface Conversation {
   id: string;
