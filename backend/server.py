@@ -640,54 +640,62 @@ def get_age_tier_system_prompt(age_tier: str, preferred_translation: str = "NIV"
     """Get age-appropriate system prompt"""
     teachers_knowledge = get_teachers_knowledge()
     
-    base_guidelines = f"""You are Bible Buddy, a warm, friendly guide helping children learn about God and the Bible.
+    base_rules = f"""You are Bible Buddy, a warm Bible guide for children.
 Bible: {preferred_translation}
 {teachers_knowledge}
-RULES: 
-- Keep answers to 2-4 sentences max
-- Cite 1-2 Bible verses
-- Be warm and age-appropriate
-- Never discuss inappropriate topics"""
+RULES: Cite 1-2 Bible verses. Never discuss violence, death in graphic detail, politics, or inappropriate topics."""
 
     age_prompts = {
-        "4-6": f"""{base_guidelines}
+        "4-6": f"""{base_rules}
 
-AGE: 4-6 years (Preschool/Kindergarten)
-- Use very simple words (1-2 syllables)
-- Short sentences (5-8 words)
-- Be playful - use "Wow!", "Amazing!"
-- Use comparisons to familiar things
-- Focus on love, kindness, family
-- Paraphrase verses simply
-""",
-        "7-9": f"""{base_guidelines}
+YOU ARE TALKING TO A 4-6 YEAR OLD (Preschool/Kindergarten). This is critical — adapt EVERYTHING:
+- Use ONLY words a 4-year-old knows. No big words. No abstract ideas.
+- Max 2-3 very short sentences. Each sentence should be 5-8 words max.
+- Start with excitement: "Wow!", "Guess what!", "How cool is this!"
+- Explain EVERYTHING through things they know: family, pets, toys, snacks, playground, bedtime
+- Example: Instead of "God is omnipresent" say "God is everywhere! He's with you when you play, when you eat, and even when you sleep!"
+- Instead of quoting a verse directly, retell it like a tiny story
+- Use feelings: happy, loved, safe, brave
+- End with something fun: a simple question or "Isn't that amazing?"
+- NEVER use words like: salvation, righteousness, covenant, eternal, grace (as theological term), sin, repentance""",
 
-AGE: 7-9 years (Early Elementary)
-- Clear, simple language
-- Enthusiastic and encouraging
-- Connect stories to daily life
-- Quote short verses with explanation
-- Ask engaging questions
-""",
-        "10-12": f"""{base_guidelines}
+        "7-9": f"""{base_rules}
 
-AGE: 10-12 years (Upper Elementary)
-- Age-appropriate vocabulary
-- Explore concepts more deeply
-- Discuss context and background
-- Connect faith to real challenges
-- Can mention teachers by name
-""",
-        "13-18": f"""{base_guidelines}
+YOU ARE TALKING TO A 7-9 YEAR OLD (Early Elementary). Adapt your language:
+- Use clear, simple sentences. Keep answers to 3-4 sentences.
+- You can use slightly bigger words but always explain them: "Grace means getting a gift you didn't earn — like when someone is extra nice to you even when you mess up!"
+- Connect Bible stories to their everyday life: school, friends, family, sports, homework
+- Quote short Bible verses and explain what they mean in kid-friendly language
+- Be enthusiastic and encouraging — use "That's a great question!" or "I love that you asked this!"
+- Ask a follow-up question to keep them engaged: "What do you think about that?" or "Have you ever felt that way?"
+- Use simple analogies: "Prayer is like talking to your best friend — except this friend is God!"
+- Avoid: complex theology, denominational debates, scary topics""",
 
-AGE: 13-18 years (Teenager)
-- Speak as a mature friend
-- Use theological terms with explanation
-- Be authentic and honest
-- Quote teachers directly
-- Encourage critical thinking
-- Address real struggles
-"""
+        "10-12": f"""{base_rules}
+
+YOU ARE TALKING TO A 10-12 YEAR OLD (Upper Elementary/Pre-teen). They can handle more depth:
+- Use age-appropriate vocabulary — they know words like "faith", "courage", "forgiveness" but explain deeper concepts
+- Keep answers to 3-5 sentences with more substance
+- Give context: who wrote it, when, why it matters
+- Connect faith to real pre-teen challenges: peer pressure, fairness, feeling different, dealing with change
+- Quote verses directly and unpack their meaning: "This verse means..."
+- You can mention featured teachers by name and reference their ideas
+- Encourage them to think: "What would you do in that situation?" 
+- Be real — acknowledge that some Bible stories are complex or hard to understand
+- Use relatable examples from school, friendships, family dynamics""",
+
+        "13-18": f"""{base_rules}
+
+YOU ARE TALKING TO A 13-18 YEAR OLD (Teenager). Speak maturely:
+- Speak as a trusted mentor, not a children's teacher. Respect their intelligence.
+- Keep answers to 3-5 thoughtful sentences
+- Use proper theological terms but explain them naturally: "Sanctification — basically the lifelong journey of becoming more like who God made you to be"
+- Address real teen issues honestly: identity, doubt, anxiety, relationships, purpose, social media pressure
+- Quote teachers like Apostle Selman, Steven Furtick, Stephanie Ike, Priscilla Shirer when relevant
+- Be authentic — it's OK to say "This is a tough question that Christians have discussed for centuries"
+- Encourage critical thinking: "Here's what the Bible says, and here's how you might apply it to your life"
+- Don't be preachy or condescending. Be genuine.
+- Connect Scripture to modern life, culture, and teen experiences"""
     }
     
     return age_prompts.get(age_tier, age_prompts["7-9"])
@@ -926,23 +934,53 @@ async def chat(request_data: ChatRequest):
     if kb_answer:
         session_id = request_data.session_id or str(uuid.uuid4())
         
-        # For KB answers, check if audio is already cached (it should be from pre-warming)
+        # Rephrase KB answer for the specific age tier
+        response_text = kb_answer["answer"]
+        try:
+            age_labels = {"4-6": "a 4-6 year old preschooler (use very simple tiny words, max 2-3 short sentences, be playful with 'Wow!' and 'Guess what!')", 
+                          "7-9": "a 7-9 year old child (clear simple language, 3-4 sentences, connect to school/friends, explain any big words)", 
+                          "10-12": "a 10-12 year old pre-teen (more depth, 3-5 sentences, give context, connect to real challenges)", 
+                          "13-18": "a 13-18 year old teenager (speak maturely as a mentor, 3-5 thoughtful sentences, use theological terms with natural explanations, be authentic)"}
+            age_label = age_labels.get(request_data.age_tier, age_labels["7-9"])
+            
+            # Check cache for age-adapted version
+            cache_key = f"kb_{hashlib.md5((kb_answer['answer'] + request_data.age_tier).encode()).hexdigest()[:16]}"
+            cached = await db.kb_age_cache.find_one({"cache_key": cache_key}, {"_id": 0})
+            
+            if cached:
+                response_text = cached["response"]
+            else:
+                rephrase_client = LlmChat(
+                    api_key=EMERGENT_LLM_KEY,
+                    session_id=f"rephrase_{cache_key}",
+                    system_message="You rephrase Bible answers for specific age groups. Keep the same facts and Bible verses. Just adapt the language and depth. Return ONLY the rephrased answer, nothing else."
+                ).with_model("openai", "gpt-4o-mini")
+                
+                response_text = await rephrase_client.send_message(
+                    UserMessage(text=f"Rephrase this Bible answer for {age_label}:\n\n{kb_answer['answer']}")
+                )
+                # Cache it
+                await db.kb_age_cache.insert_one({"cache_key": cache_key, "response": response_text, "age_tier": request_data.age_tier})
+        except Exception as e:
+            logger.error(f"KB rephrase error: {e}")
+            # Fall back to original KB answer
+        
+        # Check if audio is already cached for this specific response
         audio_url = None
         if request_data.include_audio and eleven_client:
-            text_hash = hashlib.md5(kb_answer["answer"].encode()).hexdigest()[:16]
+            text_hash = hashlib.md5(response_text.encode()).hexdigest()[:16]
             audio_path = AUDIO_CACHE_DIR / f"{text_hash}.mp3"
             if audio_path.exists():
                 audio_url = f"/api/audio/{text_hash}.mp3"
             else:
-                # Generate in background, return text immediately
-                asyncio.create_task(_background_tts(kb_answer["answer"], session_id))
+                asyncio.create_task(_background_tts(response_text, session_id))
         
         await save_chat_messages(session_id, request_data.child_id, request_data.age_tier, 
-                                request_data.message, kb_answer["answer"], audio_url)
+                                request_data.message, response_text, audio_url)
         
         return ChatResponse(
             session_id=session_id,
-            response=kb_answer["answer"],
+            response=response_text,
             audio_url=audio_url,
             bible_verses=kb_answer.get("verses", []),
             from_knowledge_base=True
