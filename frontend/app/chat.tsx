@@ -155,43 +155,42 @@ export default function ChatScreen() {
     };
   }, []);
 
+  // Build full audio URL from relative path
+  const getFullAudioUrl = (audioPath: string) => {
+    if (audioPath.startsWith('http')) return audioPath;
+    return `${BACKEND_URL}${audioPath}`;
+  };
+
   const speakText = async (text: string, audioUrl?: string) => {
     try {
       setIsPlaying(true);
 
-      // First: try playing ElevenLabs audio if available
+      // Step 1: Try playing ElevenLabs audio if we have a URL
       if (audioUrl) {
-        if (Platform.OS === 'web') {
-          // Web: use HTML5 Audio element
-          await playWebAudio(audioUrl);
-          return;
-        } else {
-          // Native: use expo-av
-          await playNativeAudio(audioUrl);
-          return;
-        }
+        const fullUrl = getFullAudioUrl(audioUrl);
+        console.log('Playing audio from:', fullUrl);
+        const played = await playAudio(fullUrl);
+        if (played) return;
       }
 
-      // Fallback: fetch TTS from backend
+      // Step 2: Try fetching TTS from backend
       try {
-        const ttsRes = await fetch(`${BACKEND_URL}/api/tts?text=${encodeURIComponent(text)}`);
+        const ttsRes = await fetch(`${BACKEND_URL}/api/tts?text=${encodeURIComponent(text)}`, { method: 'POST' });
         if (ttsRes.ok) {
           const ttsData = await ttsRes.json();
           if (ttsData.audio_url) {
-            if (Platform.OS === 'web') {
-              await playWebAudio(ttsData.audio_url);
-              return;
-            } else {
-              await playNativeAudio(ttsData.audio_url);
-              return;
-            }
+            const fullUrl = getFullAudioUrl(ttsData.audio_url);
+            console.log('Playing TTS audio from:', fullUrl);
+            const played = await playAudio(fullUrl);
+            if (played) return;
           }
         }
       } catch (e) {
-        console.log('TTS fetch fallback error:', e);
+        console.log('TTS fetch error:', e);
       }
 
-      // Last resort: use device speech synthesis
+      // Step 3: Last resort - device speech synthesis
+      console.log('Falling back to device speech');
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           window.speechSynthesis.cancel();
@@ -220,66 +219,62 @@ export default function ChatScreen() {
     }
   };
 
-  const playWebAudio = (audioUrl: string): Promise<void> => {
-    return new Promise((resolve) => {
-      try {
-        if (webAudioRef.current) {
-          webAudioRef.current.pause();
-        }
-        const audio = new window.Audio(audioUrl);
-        webAudioRef.current = audio;
-        audio.onended = () => {
-          setIsPlaying(false);
-          resolve();
-        };
-        audio.onerror = () => {
-          console.log('Web audio playback error');
-          setIsPlaying(false);
-          resolve();
-        };
-        audio.play().catch(() => {
-          console.log('Web audio play() failed - likely no user interaction yet');
-          setIsPlaying(false);
-          resolve();
-        });
-      } catch (e) {
-        console.log('playWebAudio error:', e);
-        setIsPlaying(false);
-        resolve();
-      }
-    });
-  };
-
-  const playNativeAudio = async (audioUrl: string) => {
+  const playAudio = async (url: string): Promise<boolean> => {
     try {
-      // Unload previous sound
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-      }
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-      });
-
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUrl },
-        { shouldPlay: true }
-      );
-      soundRef.current = sound;
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setIsPlaying(false);
-          sound.unloadAsync();
+      if (Platform.OS === 'web') {
+        // Web: HTML5 Audio
+        return new Promise((resolve) => {
+          if (webAudioRef.current) {
+            webAudioRef.current.pause();
+          }
+          const audio = new window.Audio(url);
+          webAudioRef.current = audio;
+          audio.onended = () => {
+            setIsPlaying(false);
+            resolve(true);
+          };
+          audio.onerror = () => {
+            console.log('Web audio error');
+            setIsPlaying(false);
+            resolve(false);
+          };
+          audio.play().catch((e) => {
+            console.log('Web audio play failed:', e);
+            setIsPlaying(false);
+            resolve(false);
+          });
+        });
+      } else {
+        // Native: expo-av with proper HTTP URL
+        if (soundRef.current) {
+          await soundRef.current.unloadAsync();
         }
-      });
+
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+        });
+
+        console.log('Loading native audio:', url);
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: url },
+          { shouldPlay: true, volume: 1.0 }
+        );
+        soundRef.current = sound;
+
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            setIsPlaying(false);
+            sound.unloadAsync();
+          }
+        });
+        return true;
+      }
     } catch (e) {
-      console.log('playNativeAudio error:', e);
-      // Fallback to expo-speech
-      Speech.speak('', { language: 'en' }); // reset
+      console.log('playAudio error:', e);
       setIsPlaying(false);
+      return false;
     }
   };
 

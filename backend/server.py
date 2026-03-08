@@ -1,10 +1,12 @@
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Depends, Response, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import hashlib
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
@@ -18,6 +20,8 @@ import aiohttp
 import io
 
 ROOT_DIR = Path(__file__).parent
+AUDIO_CACHE_DIR = ROOT_DIR / "audio_cache"
+AUDIO_CACHE_DIR.mkdir(exist_ok=True)
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
@@ -1147,12 +1151,29 @@ async def text_to_speech(text: str, voice_id: str = "EXAVITQu4vr4xnSDxMaL"):
         logger.error(f"TTS Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.get("/audio/{filename}")
+async def serve_audio(filename: str):
+    """Serve cached audio files"""
+    audio_path = AUDIO_CACHE_DIR / filename
+    if not audio_path.exists():
+        raise HTTPException(status_code=404, detail="Audio not found")
+    return FileResponse(audio_path, media_type="audio/mpeg", headers={"Accept-Ranges": "bytes", "Cache-Control": "public, max-age=3600"})
+
 async def generate_tts_audio(text: str, voice_id: str = "EXAVITQu4vr4xnSDxMaL") -> Optional[str]:
-    """Generate TTS audio and return as base64"""
+    """Generate TTS audio, save to file, and return HTTP URL"""
     if not eleven_client:
         return None
     
     try:
+        # Create hash of text for caching
+        text_hash = hashlib.md5(text.encode()).hexdigest()[:16]
+        audio_filename = f"{text_hash}.mp3"
+        audio_path = AUDIO_CACHE_DIR / audio_filename
+        
+        # Return cached if exists
+        if audio_path.exists():
+            return f"/api/audio/{audio_filename}"
+        
         voice_settings = VoiceSettings(
             stability=0.7,
             similarity_boost=0.75,
@@ -1171,8 +1192,10 @@ async def generate_tts_audio(text: str, voice_id: str = "EXAVITQu4vr4xnSDxMaL") 
         for chunk in audio_generator:
             audio_data += chunk
         
-        audio_b64 = base64.b64encode(audio_data).decode()
-        return f"data:audio/mpeg;base64,{audio_b64}"
+        # Save to file
+        audio_path.write_bytes(audio_data)
+        
+        return f"/api/audio/{audio_filename}"
         
     except Exception as e:
         logger.error(f"TTS generation error: {e}")
