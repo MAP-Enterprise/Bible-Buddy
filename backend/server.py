@@ -184,22 +184,155 @@ def post_process_safety(response: str) -> str:
     
     return response
 
+# ==================== FEATURED TEACHERS KNOWLEDGE BASE ====================
+
+FEATURED_TEACHERS = {
+    "apostle_selman": {
+        "name": "Apostle Joshua Selman",
+        "ministry": "Koinonia Global",
+        "key_themes": [
+            "The power of the Holy Spirit",
+            "Walking in God's wisdom and understanding",
+            "The importance of prayer and intimacy with God",
+            "Spiritual growth and maturity",
+            "Kingdom principles and dominion",
+            "The mystery of Christ and the Church",
+            "Operating in spiritual gifts",
+            "The fear of the Lord as the beginning of wisdom"
+        ],
+        "notable_teachings": [
+            "There is no substitute for the presence of God",
+            "Your spiritual growth is measured by your hunger for God's word",
+            "Prayer is not just asking God for things, it's communion with Him",
+            "The Holy Spirit is your greatest advantage in life",
+            "Wisdom is the principal thing - get wisdom and understanding",
+            "Every believer must learn to operate in the realm of the Spirit",
+            "God's word is the blueprint for your life"
+        ],
+        "style": "Deep theological teaching with practical application, emphasis on the Holy Spirit"
+    },
+    "stephanie_ike": {
+        "name": "Pastor Stephanie Ike",
+        "ministry": "ONE Church LA / The Light Church",
+        "key_themes": [
+            "Identity in Christ",
+            "Purpose and destiny",
+            "Breaking free from fear and anxiety",
+            "Faith over feelings",
+            "God's unconditional love",
+            "Healing from emotional wounds",
+            "Living a surrendered life",
+            "The power of worship"
+        ],
+        "notable_teachings": [
+            "You are not what happened to you, you are who God says you are",
+            "Fear is faith in the enemy - choose to trust God instead",
+            "Your feelings are valid, but they don't determine your value",
+            "God's love for you is not based on your performance",
+            "Surrender is not weakness, it's the path to freedom",
+            "You were created on purpose, for a purpose",
+            "Worship shifts your perspective from problems to God's power"
+        ],
+        "style": "Encouraging, empathetic, focused on identity and emotional healing"
+    },
+    "steven_furtick": {
+        "name": "Pastor Steven Furtick",
+        "ministry": "Elevation Church",
+        "key_themes": [
+            "Faith and confidence in God",
+            "Overcoming obstacles and limitations",
+            "God's promises and provision",
+            "Breaking through barriers",
+            "Trusting God in uncertain times",
+            "Boldness and courage",
+            "Grace and transformation",
+            "The power of perspective"
+        ],
+        "notable_teachings": [
+            "The enemy's job is to steal, kill, and destroy - don't let him",
+            "What God starts, He finishes",
+            "Your limitations are God's opportunities",
+            "Don't let your feelings determine your faith",
+            "God is doing a new thing - can you perceive it?",
+            "The battle is already won, stand firm",
+            "What looks like a setback is often a setup for something greater"
+        ],
+        "style": "Passionate, energetic, motivational with practical faith applications"
+    },
+    "priscilla_shirer": {
+        "name": "Priscilla Shirer",
+        "ministry": "Going Beyond Ministries",
+        "key_themes": [
+            "Spiritual warfare and the armor of God",
+            "Prayer as a weapon",
+            "Hearing God's voice",
+            "Living as a discerning believer",
+            "The power of God's Word",
+            "Faith in action",
+            "Purpose and calling",
+            "Standing firm against the enemy"
+        ],
+        "notable_teachings": [
+            "Prayer is not preparation for the battle - prayer IS the battle",
+            "The enemy wants to distract you from your divine assignment",
+            "God's Word is your sword - learn to use it",
+            "Discernment comes from spending time with God",
+            "You are equipped for every battle you face",
+            "Don't just read the Bible - let the Bible read you",
+            "Your identity in Christ is your greatest weapon"
+        ],
+        "style": "Bold, Scripture-rich, focused on spiritual warfare and practical application"
+    }
+}
+
+def get_teachers_knowledge() -> str:
+    """Generate knowledge base content from featured teachers"""
+    knowledge = """
+FEATURED CHRISTIAN TEACHERS - You can reference their teachings when appropriate:
+
+"""
+    for teacher_id, teacher in FEATURED_TEACHERS.items():
+        knowledge += f"""
+{teacher['name']} ({teacher['ministry']}):
+Teaching Style: {teacher['style']}
+Key Themes: {', '.join(teacher['key_themes'][:5])}
+Notable Wisdom:
+"""
+        for teaching in teacher['notable_teachings'][:4]:
+            knowledge += f"  - \"{teaching}\"\n"
+    
+    return knowledge
+
 # ==================== AGE-TIER PROMPTS ====================
 
 def get_age_tier_system_prompt(age_tier: str, preferred_translation: str = "NIV") -> str:
     """Get age-appropriate system prompt"""
     
+    teachers_knowledge = get_teachers_knowledge()
+    
     base_guidelines = f"""
 You are Bible Buddy, a warm, friendly, and loving guide who helps children learn about God, Jesus, and the Bible.
 
+PRIMARY KNOWLEDGE SOURCE: The Holy Bible (all translations including {preferred_translation})
+
+SECONDARY KNOWLEDGE - FEATURED CHRISTIAN TEACHERS:
+You also have access to wisdom from these trusted Bible teachers. When relevant, you can share their insights in an age-appropriate way:
+{teachers_knowledge}
+
 CORE PRINCIPLES:
-1. Always ground your answers in Scripture - cite verses from {preferred_translation} translation when relevant
-2. Be age-appropriate in vocabulary and explanation depth
-3. Never be preachy or judgmental - be encouraging and loving
-4. Show empathy and understanding
-5. Keep children safe - never discuss inappropriate topics
-6. If asked something outside of Bible/faith topics, gently redirect to spiritual discussions
-7. Use multiple Bible translations when helpful: KJV, NIV, Good News, Message Translation
+1. Always ground your answers FIRST in Scripture - cite verses from {preferred_translation} translation when relevant
+2. You may also reference wisdom from the featured teachers when it adds value
+3. Be age-appropriate in vocabulary and explanation depth
+4. Never be preachy or judgmental - be encouraging and loving
+5. Show empathy and understanding
+6. Keep children safe - never discuss inappropriate topics
+7. If asked something outside of Bible/faith topics, gently redirect to spiritual discussions
+8. Use multiple Bible translations when helpful: KJV, NIV, Good News, Message Translation
+
+WHEN REFERENCING TEACHERS:
+- For younger children (4-9): Simplify their teachings into child-friendly language
+- For older children (10-18): Can mention them by name and share their wisdom more directly
+- Always connect their teachings back to Scripture
 
 SAFETY RULES (CRITICAL):
 - Never provide harmful information
@@ -618,6 +751,38 @@ async def get_voices():
     except Exception as e:
         logger.error(f"Voices error: {e}")
         return {"voices": [], "error": str(e)}
+
+# Get Featured Teachers
+@api_router.get("/teachers")
+async def get_teachers():
+    """Get list of featured Christian teachers"""
+    teachers_list = []
+    for teacher_id, teacher in FEATURED_TEACHERS.items():
+        teachers_list.append({
+            "id": teacher_id,
+            "name": teacher["name"],
+            "ministry": teacher["ministry"],
+            "key_themes": teacher["key_themes"],
+            "notable_teachings": teacher["notable_teachings"][:5],
+            "style": teacher["style"]
+        })
+    return {"teachers": teachers_list}
+
+@api_router.get("/teachers/{teacher_id}")
+async def get_teacher(teacher_id: str):
+    """Get details of a specific teacher"""
+    if teacher_id not in FEATURED_TEACHERS:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    
+    teacher = FEATURED_TEACHERS[teacher_id]
+    return {
+        "id": teacher_id,
+        "name": teacher["name"],
+        "ministry": teacher["ministry"],
+        "key_themes": teacher["key_themes"],
+        "notable_teachings": teacher["notable_teachings"],
+        "style": teacher["style"]
+    }
 
 # Include the router in the main app
 app.include_router(api_router)

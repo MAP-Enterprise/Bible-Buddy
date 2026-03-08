@@ -325,7 +325,7 @@ export default function BibleBuddyApp() {
         {[
           "Who made the world?",
           "Tell me about Jesus",
-          "What is the Bible?",
+          "How can I pray?",
           "Why does God love me?",
         ].map((suggestion, index) => (
           <TouchableOpacity
@@ -337,6 +337,32 @@ export default function BibleBuddyApp() {
             <Ionicons name="arrow-forward-circle" size={20} color="#4A90D9" />
           </TouchableOpacity>
         ))}
+      </View>
+
+      {/* Featured Teachers Section */}
+      <View style={styles.teachersSection}>
+        <Text style={styles.teachersTitle}>Wisdom from Amazing Teachers</Text>
+        <Text style={styles.teachersSubtitle}>
+          I also share insights from these inspiring pastors:
+        </Text>
+        <View style={styles.teachersList}>
+          <View style={styles.teacherChip}>
+            <Text style={styles.teacherEmoji}>🎤</Text>
+            <Text style={styles.teacherName}>Apostle Selman</Text>
+          </View>
+          <View style={styles.teacherChip}>
+            <Text style={styles.teacherEmoji}>💜</Text>
+            <Text style={styles.teacherName}>Stephanie Ike</Text>
+          </View>
+          <View style={styles.teacherChip}>
+            <Text style={styles.teacherEmoji}>🔥</Text>
+            <Text style={styles.teacherName}>Steven Furtick</Text>
+          </View>
+          <View style={styles.teacherChip}>
+            <Text style={styles.teacherEmoji}>⚔️</Text>
+            <Text style={styles.teacherName}>Priscilla Shirer</Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -881,5 +907,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4A90D9',
     flex: 1,
+  },
+  // Featured Teachers Styles
+  teachersSection: {
+    marginTop: 30,
+    paddingHorizontal: 16,
+    width: '100%',
+  },
+  teachersTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4A90D9',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  teachersSubtitle: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  teachersList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  teacherChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#4A90D9',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  teacherEmoji: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  teacherName: {
+    fontSize: 12,
+    color: '#555',
+    fontWeight: '500',
   },
 });
