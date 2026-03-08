@@ -121,7 +121,14 @@ export default function ChatScreen() {
         };
 
         setMessages(prev => [...prev, assistantMessage]);
-        speakText(data.response, data.audio_url);
+
+        // If audio_url came with the response (cached KB), play immediately
+        if (data.audio_url) {
+          speakText(data.response, data.audio_url);
+        } else {
+          // Audio is being generated in background - fetch it separately
+          fetchAndPlayAudio(data.response, data.session_id, assistantMessage.id);
+        }
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -137,6 +144,30 @@ export default function ChatScreen() {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }
   };
+
+  // Fetch audio separately when text returns without audio (background TTS)
+  const fetchAndPlayAudio = async (text: string, sid: string, messageId: string) => {
+    // Try the /api/tts endpoint to generate audio
+    try {
+      const ttsRes = await fetch(`${BACKEND_URL}/api/tts?text=${encodeURIComponent(text)}`, { method: 'POST' });
+      if (ttsRes.ok) {
+        const ttsData = await ttsRes.json();
+        if (ttsData.audio_url) {
+          // Update the message with the audio URL
+          setMessages(prev => prev.map(m => 
+            m.id === messageId ? { ...m, audioUrl: ttsData.audio_url } : m
+          ));
+          speakText(text, ttsData.audio_url);
+          return;
+        }
+      }
+    } catch (e) {
+      console.log('fetchAndPlayAudio error:', e);
+    }
+    // If TTS fetch fails, use device speech
+    speakText(text);
+  };
+
 
   // Audio player ref for ElevenLabs audio
   const soundRef = useRef<Audio.Sound | null>(null);

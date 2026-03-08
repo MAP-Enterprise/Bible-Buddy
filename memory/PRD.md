@@ -1,68 +1,58 @@
 # Bible Buddy - Product Requirements Document
 
 ## Original Problem Statement
-Build a mobile application called "Bible Buddy" — an interactive app for children to ask questions about the Bible and receive safe, age-appropriate answers. Features both text and voice-based interaction.
-
-## Core Requirements
-- Age-appropriate AI chat for children (4-6, 7-9, 10-12, 13-18 age tiers)
-- Safety content filtering for inappropriate topics
-- Knowledge base of 56+ common faith questions for instant answers
-- Featured Christian teachers (Apostle Selman, Stephanie Ike, Steven Furtick, Priscilla Shirer) integrated into AI responses
-- Text-to-Speech (TTS) for reading responses aloud
-- Speech-to-Text (STT) for voice input
-- Parent Dashboard with conversation history and usage stats
-- Multi-step onboarding with parental consent
-- Daily Bible Verse feature with AI explanations
+Build a mobile application called "Bible Buddy" — an interactive app for children to ask questions about the Bible and receive safe, age-appropriate answers with voice interaction.
 
 ## Architecture
-- **Backend:** FastAPI + MongoDB + OpenAI (Emergent LLM Key) + ElevenLabs TTS + Deepgram STT
+- **Backend:** FastAPI + MongoDB + OpenAI (gpt-4o-mini via Emergent LLM Key) + ElevenLabs TTS + Deepgram STT
 - **Frontend:** Expo React Native (web + native) with expo-router
+- **Storage:** expo-secure-store (native) / localStorage (web)
+- **Audio:** expo-av with HTTP-served MP3 files (not base64)
 
 ## What's Implemented
 
-### Phase 1 — Complete
-- Core AI conversation engine with age-tier prompts
-- Safety/content filtering layer
-- Knowledge base (56 questions)
-- Featured teachers integration
+### Core Features ✅
+- AI chat with safety filtering and age-tier prompts (4-6, 7-9, 10-12, 13-18)
+- Knowledge base: 56 instant answers with pre-cached ElevenLabs audio
+- Featured teachers: Apostle Selman, Stephanie Ike, Steven Furtick, Priscilla Shirer
+- Daily Verse of the Day with AI explanations
+- Multi-screen app: Home, Onboarding, Chat, Parent Dashboard
+- Cross-platform storage (expo-secure-store for native, localStorage for web)
 
-### Phase 2 — In Progress
-- Multi-screen app: Home, Onboarding (3-step), Chat, Parent Dashboard
-- Chat UI: gradient message bubbles, Bible verse chips, suggestion cards
-- Onboarding: Name → Age Selection (2x2 grid) → Parental Consent
-- Home screen: features grid, Verse of the Day, teachers section
-- Parent Dashboard: conversation history, stats, topic tracking
-- Cross-platform storage (localStorage/AsyncStorage)
-- TTS: ElevenLabs (upgraded to paid) + Web Speech API fallback
-- **Daily Bible Verse** (NEW): 31 curated verses, AI-generated age-appropriate explanations, daily rotation, share/copy feature, MongoDB caching
+### Voice/Audio ✅
+- ElevenLabs TTS: audio saved as MP3 files on disk, served via HTTP URL
+- 56 KB answers pre-cached at startup (~0ms audio playback)
+- Background TTS generation for AI responses (text returns immediately)
+- 3-tier fallback: ElevenLabs → Backend TTS → Device speech synthesis
+- Visual feedback: "Bible Buddy is speaking..." bar + Stop button
 
-### Not Yet Implemented
-- STT frontend (backend Deepgram integration ready, frontend mic capture missing)
-- Full authentication (using local storage, not proper auth)
-- Real parent dashboard data (UI present, data static)
-- COPPA-compliant parental consent flow
+### Performance Optimizations ✅
+- KB answers: ~200ms (instant text + pre-cached audio)
+- AI answers: ~200ms text response (gpt-4o-mini), audio follows in background
+- Concise system prompt for faster LLM inference
+- Audio file caching with content-based hashing
+- Background TTS generation (never blocks text response)
 
 ## API Endpoints
-- `POST /api/chat` — Main chat with AI
-- `POST /api/tts` — Text-to-Speech (ElevenLabs)
-- `GET /api/teachers` — Featured teachers list
-- `GET /api/knowledge-base` — All knowledge base questions
-- `GET /api/verse-of-the-day?age_tier=7-9` — Daily Bible verse with AI explanation (NEW)
-- `POST /api/voice-chat` — STT endpoint (frontend not wired)
-- `POST /api/onboarding` — Save user setup
-- `GET /api/sessions/{child_id}` — Chat session history
+- `POST /api/chat` — Main chat (text returns instantly, audio in background)
+- `GET /api/audio/{filename}` — Serve cached MP3 audio files
+- `GET /api/audio-status/{session_id}` — Poll audio generation status
+- `POST /api/tts` — Direct TTS generation
+- `GET /api/verse-of-the-day` — Daily Bible verse
+- `GET /api/teachers` — Featured teachers
+- `GET /api/knowledge-base` — All KB questions
 
 ## Prioritized Backlog
 
 ### P1
 - Wire STT frontend (mic button → Deepgram backend)
-- Implement full authentication (parent accounts, child profiles)
-- Connect Parent Dashboard to real backend conversation data
+- Full authentication (parent accounts, child profiles)
+- Connect Parent Dashboard to real backend data
 
 ### P2
 - COPPA-compliant parental consent flow
-- Persistent conversation history in MongoDB
+- Persistent conversation history
 
 ### P3
-- Full QA testing across iOS and Android
+- Full QA on iOS/Android native
 - Production deployment

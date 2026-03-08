@@ -19,9 +19,14 @@ from elevenlabs import ElevenLabs, VoiceSettings
 import aiohttp
 import io
 
+import asyncio
+
 ROOT_DIR = Path(__file__).parent
 AUDIO_CACHE_DIR = ROOT_DIR / "audio_cache"
 AUDIO_CACHE_DIR.mkdir(exist_ok=True)
+
+# Background TTS task tracker
+_tts_tasks: Dict[str, asyncio.Task] = {}
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
@@ -571,14 +576,9 @@ FEATURED_TEACHERS = {
 }
 
 def get_teachers_knowledge() -> str:
-    """Generate knowledge base content from featured teachers"""
-    knowledge = "\nFEATURED CHRISTIAN TEACHERS:\n"
-    for teacher_id, teacher in FEATURED_TEACHERS.items():
-        knowledge += f"\n{teacher['name']} ({teacher['ministry']}):\n"
-        knowledge += f"Style: {teacher['style']}\n"
-        for teaching in teacher['notable_teachings'][:3]:
-            knowledge += f"  - \"{teaching}\"\n"
-    return knowledge
+    """Generate concise knowledge base content from featured teachers"""
+    names = [t['name'] for t in FEATURED_TEACHERS.values()]
+    return f"\nDraw wisdom from teachers: {', '.join(names)}.\n"
 
 # ==================== SAFETY FILTERING ====================
 
@@ -640,19 +640,14 @@ def get_age_tier_system_prompt(age_tier: str, preferred_translation: str = "NIV"
     """Get age-appropriate system prompt"""
     teachers_knowledge = get_teachers_knowledge()
     
-    base_guidelines = f"""
-You are Bible Buddy, a warm, friendly, and loving guide who helps children learn about God, Jesus, and the Bible.
-
-PRIMARY KNOWLEDGE: The Holy Bible ({preferred_translation})
+    base_guidelines = f"""You are Bible Buddy, a warm, friendly guide helping children learn about God and the Bible.
+Bible: {preferred_translation}
 {teachers_knowledge}
-
-CORE PRINCIPLES:
-1. Ground answers in Scripture first - cite verses from {preferred_translation}
-2. Reference featured teachers' wisdom when relevant
-3. Be age-appropriate in vocabulary and depth
-4. Never be preachy - be encouraging and loving
-5. Keep children safe - never discuss inappropriate topics
-"""
+RULES: 
+- Keep answers to 2-4 sentences max
+- Cite 1-2 Bible verses
+- Be warm and age-appropriate
+- Never discuss inappropriate topics"""
 
     age_prompts = {
         "4-6": f"""{base_guidelines}
@@ -907,7 +902,7 @@ async def give_parental_consent(child_id: str, request: Request):
 
 @api_router.post("/chat", response_model=ChatResponse)
 async def chat(request_data: ChatRequest):
-    """Main chat endpoint"""
+    """Main chat endpoint - returns text immediately, audio generated in background"""
     
     # Safety check
     safety_check = check_content_safety(request_data.message)
@@ -929,16 +924,19 @@ async def chat(request_data: ChatRequest):
     # Check knowledge base first
     kb_answer = find_knowledge_base_answer(request_data.message)
     if kb_answer:
-        # Generate audio for knowledge base answer
+        session_id = request_data.session_id or str(uuid.uuid4())
+        
+        # For KB answers, check if audio is already cached (it should be from pre-warming)
         audio_url = None
         if request_data.include_audio and eleven_client:
-            try:
-                audio_url = await generate_tts_audio(kb_answer["answer"])
-            except Exception as e:
-                logger.error(f"TTS error: {e}")
+            text_hash = hashlib.md5(kb_answer["answer"].encode()).hexdigest()[:16]
+            audio_path = AUDIO_CACHE_DIR / f"{text_hash}.mp3"
+            if audio_path.exists():
+                audio_url = f"/api/audio/{text_hash}.mp3"
+            else:
+                # Generate in background, return text immediately
+                asyncio.create_task(_background_tts(kb_answer["answer"], session_id))
         
-        # Create/update session
-        session_id = request_data.session_id or str(uuid.uuid4())
         await save_chat_messages(session_id, request_data.child_id, request_data.age_tier, 
                                 request_data.message, kb_answer["answer"], audio_url)
         
@@ -952,7 +950,6 @@ async def chat(request_data: ChatRequest):
     
     # Use LLM for non-cached questions
     try:
-        # Get child's translation preference
         child = await db.children.find_one({"child_id": request_data.child_id}, {"_id": 0})
         preferred_translation = child.get("preferred_translation", "NIV") if child else "NIV"
         
@@ -962,7 +959,7 @@ async def chat(request_data: ChatRequest):
             api_key=EMERGENT_LLM_KEY,
             session_id=request_data.session_id or str(uuid.uuid4()),
             system_message=system_prompt
-        ).with_model("openai", "gpt-4o")
+        ).with_model("openai", "gpt-4o-mini")
         
         user_message = UserMessage(text=request_data.message)
         response_text = await chat_client.send_message(user_message)
@@ -971,32 +968,46 @@ async def chat(request_data: ChatRequest):
         logger.error(f"LLM Error: {e}")
         response_text = "I'm having a little trouble right now. Can you ask me again?"
     
-    # Post-process safety
     response_text = post_process_safety(response_text)
-    
-    # Extract verses
     bible_verses = extract_bible_verses(response_text)
     
-    # Generate audio
-    audio_url = None
-    if request_data.include_audio and eleven_client:
-        try:
-            audio_url = await generate_tts_audio(response_text)
-        except Exception as e:
-            logger.error(f"TTS error: {e}")
-    
-    # Save messages
+    # DON'T wait for TTS - return text immediately, generate audio in background
     session_id = request_data.session_id or str(uuid.uuid4())
+    if request_data.include_audio and eleven_client:
+        asyncio.create_task(_background_tts(response_text, session_id))
+    
     await save_chat_messages(session_id, request_data.child_id, request_data.age_tier,
-                            request_data.message, response_text, audio_url)
+                            request_data.message, response_text, None)
     
     return ChatResponse(
         session_id=session_id,
         response=response_text,
-        audio_url=audio_url,
+        audio_url=None,  # Frontend will poll/fetch audio separately
         bible_verses=bible_verses,
         from_knowledge_base=False
     )
+
+async def _background_tts(text: str, session_id: str):
+    """Generate TTS in background and update the session"""
+    try:
+        audio_url = await generate_tts_audio(text)
+        if audio_url:
+            # Update the session's last message with audio URL
+            await db.sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"messages.-1.audio_url": audio_url, "last_audio_url": audio_url}}
+            )
+    except Exception as e:
+        logger.error(f"Background TTS error: {e}")
+
+@api_router.get("/audio-status/{session_id}")
+async def get_audio_status(session_id: str):
+    """Check if audio is ready for a session (for polling)"""
+    # Check if TTS has completed for this session
+    session = await db.sessions.find_one({"session_id": session_id}, {"_id": 0, "last_audio_url": 1})
+    if session and session.get("last_audio_url"):
+        return {"ready": True, "audio_url": session["last_audio_url"]}
+    return {"ready": False, "audio_url": None}
 
 async def save_chat_messages(session_id: str, child_id: str, age_tier: str, 
                             user_msg: str, assistant_msg: str, audio_url: Optional[str]):
@@ -1470,6 +1481,45 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def prewarm_kb_audio():
+    """Pre-generate TTS audio for all knowledge base answers at startup"""
+    if not eleven_client:
+        logger.info("TTS not configured, skipping audio pre-warming")
+        return
+    
+    cached = 0
+    total = len(KNOWLEDGE_BASE)
+    for question, item in KNOWLEDGE_BASE.items():
+        text_hash = hashlib.md5(item["answer"].encode()).hexdigest()[:16]
+        audio_path = AUDIO_CACHE_DIR / f"{text_hash}.mp3"
+        if audio_path.exists():
+            cached += 1
+    
+    if cached == total:
+        logger.info(f"All {total} KB audio files already cached")
+        return
+    
+    # Generate missing audio in background
+    async def _generate_all():
+        generated = 0
+        for question, item in KNOWLEDGE_BASE.items():
+            text_hash = hashlib.md5(item["answer"].encode()).hexdigest()[:16]
+            audio_path = AUDIO_CACHE_DIR / f"{text_hash}.mp3"
+            if not audio_path.exists():
+                try:
+                    await generate_tts_audio(item["answer"])
+                    generated += 1
+                    if generated % 5 == 0:
+                        logger.info(f"Pre-warmed {generated} KB audio files...")
+                except Exception as e:
+                    logger.error(f"KB audio pre-warm error: {e}")
+        logger.info(f"KB audio pre-warming complete: {generated} new files generated")
+    
+    asyncio.create_task(_generate_all())
+    logger.info(f"Started KB audio pre-warming ({cached}/{total} already cached)")
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
