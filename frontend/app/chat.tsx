@@ -329,24 +329,130 @@ export default function ChatScreen() {
     setIsPlaying(false);
   };
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    if (!isRecording) {
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const mediaRecorderRef = useRef<any>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      await stopRecording();
+    } else {
+      await startRecording();
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      setIsRecording(true);
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.3, duration: 400, useNativeDriver: true }),
           Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
         ])
       ).start();
-      setTimeout(() => {
-        setIsRecording(false);
-        pulseAnim.stopAnimation();
-        pulseAnim.setValue(1);
-      }, 3000);
-    } else {
+
+      if (Platform.OS === 'web') {
+        // Web: use MediaRecorder API
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        audioChunksRef.current = [];
+        mediaRecorder.ondataavailable = (e: any) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+        mediaRecorder.start();
+        mediaRecorderRef.current = mediaRecorder;
+      } else {
+        // Native: use expo-av Recording
+        const permission = await Audio.requestPermissionsAsync();
+        if (!permission.granted) {
+          setIsRecording(false);
+          pulseAnim.stopAnimation();
+          pulseAnim.setValue(1);
+          return;
+        }
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
+        );
+        recordingRef.current = recording;
+      }
+    } catch (e) {
+      console.log('Start recording error:', e);
+      setIsRecording(false);
       pulseAnim.stopAnimation();
       pulseAnim.setValue(1);
     }
+  };
+
+  const stopRecording = async () => {
+    setIsRecording(false);
+    pulseAnim.stopAnimation();
+    pulseAnim.setValue(1);
+    setIsLoading(true);
+
+    try {
+      let audioBlob: Blob | null = null;
+      let audioUri: string | null = null;
+
+      if (Platform.OS === 'web') {
+        // Web: stop MediaRecorder and get blob
+        const mediaRecorder = mediaRecorderRef.current;
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          audioBlob = await new Promise<Blob>((resolve) => {
+            mediaRecorder.onstop = () => {
+              const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+              resolve(blob);
+            };
+            mediaRecorder.stop();
+            // Stop all tracks to release mic
+            mediaRecorder.stream.getTracks().forEach((t: any) => t.stop());
+          });
+        }
+      } else {
+        // Native: stop expo-av recording
+        const rec = recordingRef.current;
+        if (rec) {
+          await rec.stopAndUnloadAsync();
+          audioUri = rec.getURI();
+          recordingRef.current = null;
+          await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+        }
+      }
+
+      // Send to backend for transcription
+      const formData = new FormData();
+      if (Platform.OS === 'web' && audioBlob) {
+        formData.append('file', audioBlob, 'recording.webm');
+      } else if (audioUri) {
+        const fileObj = { uri: audioUri, type: 'audio/m4a', name: 'recording.m4a' } as any;
+        formData.append('file', fileObj);
+      } else {
+        setIsLoading(false);
+        return;
+      }
+
+      const res = await fetch(`${BACKEND_URL}/api/voice/transcribe`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.transcript && data.transcript.trim()) {
+          // Use the transcribed text as a message
+          sendMessage(data.transcript.trim());
+          return; // sendMessage handles setIsLoading
+        } else {
+          console.log('Empty transcript');
+        }
+      }
+    } catch (e) {
+      console.log('Stop recording / transcribe error:', e);
+    }
+    setIsLoading(false);
   };
 
   const currentTier = AGE_TIERS.find(t => t.value === ageTier) || AGE_TIERS[1];
@@ -531,6 +637,7 @@ export default function ChatScreen() {
               <TouchableOpacity
                 style={[styles.micButton, isRecording && styles.micButtonActive]}
                 onPress={toggleRecording}
+                data-testid="mic-button"
               >
                 <Ionicons name={isRecording ? 'stop' : 'mic'} size={22} color={isRecording ? '#fff' : '#6C5CE7'} />
               </TouchableOpacity>
