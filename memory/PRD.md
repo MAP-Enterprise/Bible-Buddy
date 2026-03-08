@@ -12,51 +12,56 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 - Speech-to-Text (STT) for voice input
 - Parent Dashboard with conversation history and usage stats
 - Multi-step onboarding with parental consent
+- Daily Bible Verse feature with AI explanations
 
 ## Architecture
 - **Backend:** FastAPI + MongoDB + OpenAI (Emergent LLM Key) + ElevenLabs TTS + Deepgram STT
 - **Frontend:** Expo React Native (web + native) with expo-router
 
-## What's Implemented (as of March 8, 2026)
+## What's Implemented
 
-### Phase 1 ✅
+### Phase 1 — Complete
 - Core AI conversation engine with age-tier prompts
 - Safety/content filtering layer
 - Knowledge base (56 questions)
 - Featured teachers integration
 
-### Phase 2 (In Progress)
-- ✅ Multi-screen app with expo-router (Home, Onboarding, Chat, Parent Dashboard)
-- ✅ Chat UI with gradient message bubbles, Bible verse chips, suggestion cards
-- ✅ 3-step onboarding flow (Name → Age Selection → Parental Consent)
-- ✅ Home screen with features grid, teachers section, navigation buttons
-- ✅ Parent Dashboard with conversation history, stats, topic tracking
-- ✅ Cross-platform storage (localStorage for web, AsyncStorage for native)
-- ✅ TTS fallback (Web Speech API when ElevenLabs unavailable)
-- ⚠️ ElevenLabs TTS — key flagged by provider, falls back to browser TTS
-- ❌ STT frontend integration (backend ready, frontend mic capture not wired)
-- ❌ Full authentication (using local storage, not proper auth)
+### Phase 2 — In Progress
+- Multi-screen app: Home, Onboarding (3-step), Chat, Parent Dashboard
+- Chat UI: gradient message bubbles, Bible verse chips, suggestion cards
+- Onboarding: Name → Age Selection (2x2 grid) → Parental Consent
+- Home screen: features grid, Verse of the Day, teachers section
+- Parent Dashboard: conversation history, stats, topic tracking
+- Cross-platform storage (localStorage/AsyncStorage)
+- TTS: ElevenLabs (upgraded to paid) + Web Speech API fallback
+- **Daily Bible Verse** (NEW): 31 curated verses, AI-generated age-appropriate explanations, daily rotation, share/copy feature, MongoDB caching
 
-### Bug Fixes (March 8, 2026) ✅
-- Fixed age selection screen — text/emojis now visible in 2-column grid
-- Fixed home screen features grid — all 4 features rendering correctly
-- Fixed post-onboarding navigation error
-- Updated ElevenLabs API key (still flagged by provider)
+### Not Yet Implemented
+- STT frontend (backend Deepgram integration ready, frontend mic capture missing)
+- Full authentication (using local storage, not proper auth)
+- Real parent dashboard data (UI present, data static)
+- COPPA-compliant parental consent flow
+
+## API Endpoints
+- `POST /api/chat` — Main chat with AI
+- `POST /api/tts` — Text-to-Speech (ElevenLabs)
+- `GET /api/teachers` — Featured teachers list
+- `GET /api/knowledge-base` — All knowledge base questions
+- `GET /api/verse-of-the-day?age_tier=7-9` — Daily Bible verse with AI explanation (NEW)
+- `POST /api/voice-chat` — STT endpoint (frontend not wired)
+- `POST /api/onboarding` — Save user setup
+- `GET /api/sessions/{child_id}` — Chat session history
 
 ## Prioritized Backlog
 
-### P0
-- None currently blocking
-
 ### P1
-- Implement STT frontend (wire mic button to Deepgram backend endpoint)
+- Wire STT frontend (mic button → Deepgram backend)
 - Implement full authentication (parent accounts, child profiles)
-- Connect Parent Dashboard to real backend data
+- Connect Parent Dashboard to real backend conversation data
 
 ### P2
 - COPPA-compliant parental consent flow
 - Persistent conversation history in MongoDB
-- Resolve ElevenLabs API key issue (user needs paid plan)
 
 ### P3
 - Full QA testing across iOS and Android
