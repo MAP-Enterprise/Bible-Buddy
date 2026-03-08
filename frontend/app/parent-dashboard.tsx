@@ -10,15 +10,34 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const { width } = Dimensions.get('window');
+
+// Storage helper for cross-platform support
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.getItem(key);
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+      return;
+    }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.setItem(key, value);
+  },
+};
 
 interface Conversation {
   id: string;
@@ -45,7 +64,7 @@ export default function ParentDashboardScreen() {
 
   const loadChildData = async () => {
     try {
-      const childData = await AsyncStorage.getItem('currentChild');
+      const childData = await storage.getItem('currentChild');
       if (childData) {
         const child = JSON.parse(childData);
         setChildId(child.child_id);

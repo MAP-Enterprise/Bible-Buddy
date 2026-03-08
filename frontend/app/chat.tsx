@@ -17,12 +17,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const { width } = Dimensions.get('window');
+
+// Storage helper for cross-platform support
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.getItem(key);
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+      return;
+    }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.setItem(key, value);
+  },
+};
 
 const AGE_TIERS = [
   { value: '4-6', label: '4-6', color: '#FF6B6B', emoji: '🧒' },
@@ -70,8 +87,8 @@ export default function ChatScreen() {
 
   const loadSettings = async () => {
     try {
-      const savedAgeTier = await AsyncStorage.getItem('ageTier');
-      const savedChildId = await AsyncStorage.getItem('childId');
+      const savedAgeTier = await storage.getItem('ageTier');
+      const savedChildId = await storage.getItem('childId');
       if (savedAgeTier) setAgeTier(savedAgeTier);
       if (savedChildId) setChildId(savedChildId);
     } catch (error) {
@@ -139,18 +156,68 @@ export default function ChatScreen() {
   };
 
   const speakText = (text: string) => {
-    setIsPlaying(true);
-    Speech.speak(text, {
-      language: 'en',
-      pitch: 1.1,
-      rate: 0.9,
-      onDone: () => setIsPlaying(false),
-      onError: () => setIsPlaying(false),
-    });
+    // Check if we're on web and use Web Speech API
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          // Cancel any ongoing speech first
+          window.speechSynthesis.cancel();
+          
+          setIsPlaying(true);
+          
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'en-US';
+          utterance.rate = 0.9;
+          utterance.pitch = 1.1;
+          utterance.volume = 1;
+          
+          utterance.onstart = () => {
+            console.log('Speech started');
+            setIsPlaying(true);
+          };
+          
+          utterance.onend = () => {
+            console.log('Speech ended');
+            setIsPlaying(false);
+          };
+          
+          utterance.onerror = (event) => {
+            console.log('Speech error:', event.error);
+            setIsPlaying(false);
+          };
+          
+          // Speak the text
+          window.speechSynthesis.speak(utterance);
+          console.log('Speech initiated');
+        } else {
+          console.log('Web Speech API not supported');
+          setIsPlaying(false);
+        }
+      } catch (err) {
+        console.log('Speech error:', err);
+        setIsPlaying(false);
+      }
+    } else {
+      // Use expo-speech for native platforms
+      setIsPlaying(true);
+      Speech.speak(text, {
+        language: 'en',
+        pitch: 1.1,
+        rate: 0.9,
+        onDone: () => setIsPlaying(false),
+        onError: () => setIsPlaying(false),
+      });
+    }
   };
 
   const stopAudio = () => {
-    Speech.stop();
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    } else {
+      Speech.stop();
+    }
     setIsPlaying(false);
   };
 
@@ -293,7 +360,7 @@ export default function ChatScreen() {
                   styles.ageButton,
                   ageTier === tier.value && { backgroundColor: tier.color },
                 ]}
-                onPress={() => { setAgeTier(tier.value); AsyncStorage.setItem('ageTier', tier.value); }}
+                onPress={() => { setAgeTier(tier.value); storage.setItem('ageTier', tier.value); }}
               >
                 <Text style={styles.ageButtonEmoji}>{tier.emoji}</Text>
                 <Text style={[styles.ageButtonText, ageTier === tier.value && { color: '#fff' }]}>

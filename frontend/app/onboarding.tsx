@@ -11,14 +11,33 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
+// Removed Dimensions.get usage for web compatibility
+
+// Storage helper for cross-platform support
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.getItem(key);
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+      return;
+    }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.setItem(key, value);
+  },
+};
 
 const AGE_TIERS = [
   { value: '4-6', label: '4-6 years', emoji: '🧒', desc: 'Preschool', color: '#FF6B6B', bg: '#FFE8E8' },
@@ -80,9 +99,9 @@ export default function OnboardingScreen() {
         parental_consent_given: true,
       };
       
-      await AsyncStorage.setItem('currentChild', JSON.stringify(childData));
-      await AsyncStorage.setItem('childId', childId);
-      await AsyncStorage.setItem('ageTier', selectedAgeTier);
+      await storage.setItem('currentChild', JSON.stringify(childData));
+      await storage.setItem('childId', childId);
+      await storage.setItem('ageTier', selectedAgeTier);
       
       router.replace('/chat');
     } catch (error) {
@@ -141,10 +160,11 @@ export default function OnboardingScreen() {
             ]}
             onPress={() => setSelectedAgeTier(tier.value)}
             activeOpacity={0.8}
+            data-testid={`age-card-${tier.value}`}
           >
-            <Text style={styles.ageEmoji}>{tier.emoji}</Text>
-            <Text style={[styles.ageLabel, { color: tier.color }]}>{tier.label}</Text>
-            <Text style={styles.ageDesc}>{tier.desc}</Text>
+            <Text style={{ fontSize: 40, textAlign: 'center' }}>{tier.emoji}</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#2D3436', marginTop: 8, textAlign: 'center' }}>{tier.label}</Text>
+            <Text style={{ fontSize: 12, color: '#636E72', marginTop: 4, textAlign: 'center' }}>{tier.desc}</Text>
             {selectedAgeTier === tier.value && (
               <View style={[styles.checkBadge, { backgroundColor: tier.color }]}>
                 <Ionicons name="checkmark" size={16} color="#fff" />
@@ -266,11 +286,8 @@ const styles = StyleSheet.create({
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 16, shadowColor: '#6C5CE7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6 },
   inputIcon: { marginRight: 12 },
   textInput: { flex: 1, fontSize: 18, color: '#2D3436', paddingVertical: 18 },
-  ageGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 },
-  ageCard: { width: (width - 60) / 2, padding: 20, borderRadius: 24, alignItems: 'center', borderWidth: 3, position: 'relative' },
-  ageEmoji: { fontSize: 40, marginBottom: 8 },
-  ageLabel: { fontSize: 16, fontWeight: '700' },
-  ageDesc: { fontSize: 12, color: '#636E72', marginTop: 4 },
+  ageGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 } as any,
+  ageCard: { width: '47%' as any, padding: 20, borderRadius: 24, alignItems: 'center' as const, borderWidth: 3, position: 'relative' as const, minHeight: 140 },
   checkBadge: { position: 'absolute', top: 12, right: 12, width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   safetyCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4, marginBottom: 20 },
   safetyItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },

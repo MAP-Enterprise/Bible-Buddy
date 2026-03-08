@@ -14,7 +14,7 @@ import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const bounceAnim = useRef(new Animated.Value(0)).current;
@@ -93,11 +93,11 @@ export default function HomeScreen() {
           {/* Features Grid */}
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
-              <View key={index} style={[styles.featureCard, { backgroundColor: feature.bg }]}>
+              <View key={index} style={[styles.featureCard, { backgroundColor: feature.bg }]} data-testid={`feature-${feature.label.toLowerCase()}`}>
                 <View style={[styles.featureIcon, { backgroundColor: feature.color }]}>
                   <Ionicons name={feature.icon as any} size={24} color="#fff" />
                 </View>
-                <Text style={[styles.featureLabel, { color: feature.color }]}>{feature.label}</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: feature.color, textAlign: 'center' }}>{feature.label}</Text>
               </View>
             ))}
           </View>
@@ -240,12 +240,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   featureCard: {
-    width: (width - 60) / 4,
-    aspectRatio: 1,
+    width: '22%' as any,
+    paddingVertical: 16,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
   },
   featureIcon: {
     width: 44,
@@ -254,10 +253,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
-  },
-  featureLabel: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   primaryButton: {
     marginBottom: 12,
