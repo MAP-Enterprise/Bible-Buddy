@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
+import { Audio } from 'expo-av';
 import { storage } from '../helpers/storage';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -120,7 +121,7 @@ export default function ChatScreen() {
         };
 
         setMessages(prev => [...prev, assistantMessage]);
-        speakText(data.response);
+        speakText(data.response, data.audio_url);
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -137,67 +138,166 @@ export default function ChatScreen() {
     }
   };
 
-  const speakText = (text: string) => {
-    // Check if we're on web and use Web Speech API
-    if (Platform.OS === 'web') {
+  // Audio player ref for ElevenLabs audio
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const webAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+      if (Platform.OS === 'web' && webAudioRef.current) {
+        webAudioRef.current.pause();
+        webAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  const speakText = async (text: string, audioUrl?: string) => {
+    try {
+      setIsPlaying(true);
+
+      // First: try playing ElevenLabs audio if available
+      if (audioUrl) {
+        if (Platform.OS === 'web') {
+          // Web: use HTML5 Audio element
+          await playWebAudio(audioUrl);
+          return;
+        } else {
+          // Native: use expo-av
+          await playNativeAudio(audioUrl);
+          return;
+        }
+      }
+
+      // Fallback: fetch TTS from backend
       try {
+        const ttsRes = await fetch(`${BACKEND_URL}/api/tts?text=${encodeURIComponent(text)}`);
+        if (ttsRes.ok) {
+          const ttsData = await ttsRes.json();
+          if (ttsData.audio_url) {
+            if (Platform.OS === 'web') {
+              await playWebAudio(ttsData.audio_url);
+              return;
+            } else {
+              await playNativeAudio(ttsData.audio_url);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.log('TTS fetch fallback error:', e);
+      }
+
+      // Last resort: use device speech synthesis
+      if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          // Cancel any ongoing speech first
           window.speechSynthesis.cancel();
-          
-          setIsPlaying(true);
-          
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = 'en-US';
           utterance.rate = 0.9;
           utterance.pitch = 1.1;
-          utterance.volume = 1;
-          
-          utterance.onstart = () => {
-            console.log('Speech started');
-            setIsPlaying(true);
-          };
-          
-          utterance.onend = () => {
-            console.log('Speech ended');
-            setIsPlaying(false);
-          };
-          
-          utterance.onerror = (event) => {
-            console.log('Speech error:', event.error);
-            setIsPlaying(false);
-          };
-          
-          // Speak the text
+          utterance.onend = () => setIsPlaying(false);
+          utterance.onerror = () => setIsPlaying(false);
           window.speechSynthesis.speak(utterance);
-          console.log('Speech initiated');
         } else {
-          console.log('Web Speech API not supported');
           setIsPlaying(false);
         }
-      } catch (err) {
-        console.log('Speech error:', err);
-        setIsPlaying(false);
+      } else {
+        Speech.speak(text, {
+          language: 'en',
+          pitch: 1.1,
+          rate: 0.9,
+          onDone: () => setIsPlaying(false),
+          onError: () => setIsPlaying(false),
+        });
       }
-    } else {
-      // Use expo-speech for native platforms
-      setIsPlaying(true);
-      Speech.speak(text, {
-        language: 'en',
-        pitch: 1.1,
-        rate: 0.9,
-        onDone: () => setIsPlaying(false),
-        onError: () => setIsPlaying(false),
-      });
+    } catch (err) {
+      console.log('speakText error:', err);
+      setIsPlaying(false);
     }
   };
 
-  const stopAudio = () => {
+  const playWebAudio = (audioUrl: string): Promise<void> => {
+    return new Promise((resolve) => {
+      try {
+        if (webAudioRef.current) {
+          webAudioRef.current.pause();
+        }
+        const audio = new window.Audio(audioUrl);
+        webAudioRef.current = audio;
+        audio.onended = () => {
+          setIsPlaying(false);
+          resolve();
+        };
+        audio.onerror = () => {
+          console.log('Web audio playback error');
+          setIsPlaying(false);
+          resolve();
+        };
+        audio.play().catch(() => {
+          console.log('Web audio play() failed - likely no user interaction yet');
+          setIsPlaying(false);
+          resolve();
+        });
+      } catch (e) {
+        console.log('playWebAudio error:', e);
+        setIsPlaying(false);
+        resolve();
+      }
+    });
+  };
+
+  const playNativeAudio = async (audioUrl: string) => {
+    try {
+      // Unload previous sound
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUrl },
+        { shouldPlay: true }
+      );
+      soundRef.current = sound;
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setIsPlaying(false);
+          sound.unloadAsync();
+        }
+      });
+    } catch (e) {
+      console.log('playNativeAudio error:', e);
+      // Fallback to expo-speech
+      Speech.speak('', { language: 'en' }); // reset
+      setIsPlaying(false);
+    }
+  };
+
+  const stopAudio = async () => {
     if (Platform.OS === 'web') {
+      if (webAudioRef.current) {
+        webAudioRef.current.pause();
+        webAudioRef.current = null;
+      }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
     } else {
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
       Speech.stop();
     }
     setIsPlaying(false);
@@ -261,7 +361,7 @@ export default function ChatScreen() {
                   <Text style={styles.instantText}>Instant Answer</Text>
                 </View>
               )}
-              <TouchableOpacity style={styles.listenButton} onPress={() => isPlaying ? stopAudio() : speakText(message.content)}>
+              <TouchableOpacity style={styles.listenButton} onPress={() => isPlaying ? stopAudio() : speakText(message.content, message.audioUrl)}>
                 <Ionicons name={isPlaying ? 'stop-circle' : 'play-circle'} size={26} color="#4ECDC4" />
                 <Text style={styles.listenText}>{isPlaying ? 'Stop' : 'Listen'}</Text>
               </TouchableOpacity>
