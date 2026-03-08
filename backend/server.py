@@ -478,18 +478,31 @@ def find_knowledge_base_answer(question: str) -> Optional[Dict]:
         clean_question = clean_question.replace(word, "")
     clean_question = clean_question.strip()
     
-    # Exact match
+    # Skip KB for personal/emotional messages — these need the adaptive AI
+    personal_signals = ["i feel", "i am", "i'm", "i dont", "i don't", "i can't", "i cant", 
+                        "i think", "my life", "help me", "scared", "afraid", "worried", "sad",
+                        "lonely", "angry", "confused", "lost", "hurt", "struggling",
+                        "i need", "i want to", "i wish", "how can i be", "how do i"]
+    for signal in personal_signals:
+        if signal in clean_question:
+            return None  # Force AI path for personal questions
+    
+    # Exact match only
     if clean_question in KNOWLEDGE_BASE:
         return KNOWLEDGE_BASE[clean_question]
     
-    # Partial match
+    # Strict partial match — require close match to a KB key
     for key, value in KNOWLEDGE_BASE.items():
-        if key in clean_question or clean_question in key:
-            return value
-        # Check if key words match
+        # Full substring match (at least 4 words in key)
         key_words = set(key.split())
+        if len(key_words) < 3:
+            continue
+        if key == clean_question:
+            return value
+        # Require 80%+ word overlap with at least 3 matching words
         question_words = set(clean_question.split())
-        if len(key_words & question_words) >= len(key_words) * 0.6:
+        overlap = len(key_words & question_words)
+        if overlap >= 3 and overlap >= len(key_words) * 0.8:
             return value
     
     return None
@@ -500,85 +513,189 @@ FEATURED_TEACHERS = {
     "apostle_selman": {
         "name": "Apostle Joshua Selman",
         "ministry": "Koinonia Global",
-        "key_themes": [
-            "The power of the Holy Spirit",
-            "Walking in God's wisdom and understanding",
-            "The importance of prayer and intimacy with God",
-            "Spiritual growth and maturity",
-            "Kingdom principles and dominion"
-        ],
-        "notable_teachings": [
-            "There is no substitute for the presence of God",
-            "Your spiritual growth is measured by your hunger for God's word",
-            "Prayer is not just asking God for things, it's communion with Him",
-            "The Holy Spirit is your greatest advantage in life",
-            "Wisdom is the principal thing - get wisdom and understanding"
-        ],
-        "style": "Deep theological teaching with practical application, emphasis on the Holy Spirit"
+        "style": "Deep theological teaching with practical application, emphasis on the Holy Spirit",
+        "topics": {
+            "prayer": [
+                "Prayer is not just asking God for things — it's communion with Him. When you pray, you're building a relationship.",
+                "The quality of your prayer life determines the quality of your spiritual life.",
+                "Prayer is the only way to maintain your spiritual temperature."
+            ],
+            "holy_spirit": [
+                "The Holy Spirit is your greatest advantage in life. He is the difference between struggle and victory.",
+                "There is no substitute for the presence of God. Make His presence your priority.",
+                "The Holy Spirit will teach you all things and guide you into all truth."
+            ],
+            "purpose": [
+                "Your purpose is not something you create — it's something you discover through intimacy with God.",
+                "God has a specific assignment for your life. Don't waste your years living someone else's dream.",
+                "Wisdom is the principal thing — get wisdom, and in all your getting, get understanding."
+            ],
+            "growth": [
+                "Your spiritual growth is measured by your hunger for God's word, not your years in church.",
+                "Maturity is when you can handle the word of God and let it transform you from the inside out.",
+                "Growth happens in seasons of discomfort. Don't run from the process."
+            ],
+            "fear": [
+                "Fear is a signal that you're stepping into territory the enemy doesn't want you to conquer.",
+                "The antidote to fear is the knowledge of God. Know Him and fear loses its power."
+            ],
+            "identity": [
+                "You are not what people call you. You are what God calls you.",
+                "Your value was settled at the cross. Nothing can add to it or take from it."
+            ],
+            "faith": [
+                "Faith is not the absence of fear — it's the presence of trust despite fear.",
+                "Your faith must be rooted in the Word of God, not in your circumstances."
+            ]
+        }
     },
     "stephanie_ike": {
         "name": "Pastor Stephanie Ike",
         "ministry": "ONE Church LA / The Light Church",
-        "key_themes": [
-            "Identity in Christ",
-            "Purpose and destiny",
-            "Breaking free from fear and anxiety",
-            "Faith over feelings",
-            "God's unconditional love"
-        ],
-        "notable_teachings": [
-            "You are not what happened to you, you are who God says you are",
-            "Fear is faith in the enemy - choose to trust God instead",
-            "Your feelings are valid, but they don't determine your value",
-            "God's love for you is not based on your performance",
-            "You were created on purpose, for a purpose"
-        ],
-        "style": "Encouraging, empathetic, focused on identity and emotional healing"
+        "style": "Encouraging, empathetic, focused on identity and emotional healing",
+        "topics": {
+            "identity": [
+                "You are not what happened to you — you are who God says you are.",
+                "Stop letting your past write your future. God has already authored a better story for you.",
+                "Your identity is not in your achievements, your failures, or what others think. It's in Christ alone."
+            ],
+            "fear": [
+                "Fear is faith in the enemy. Every time you choose fear, you're trusting the wrong voice.",
+                "You weren't created to live in fear. God gave you a spirit of power, love, and a sound mind.",
+                "When fear speaks, respond with Scripture. The Word of God silences every lie."
+            ],
+            "self_worth": [
+                "Your feelings are valid, but they don't determine your value. God's Word does.",
+                "God's love for you is not based on your performance. He loved you before you did anything.",
+                "Stop waiting to feel worthy. You already are — the cross proved it."
+            ],
+            "purpose": [
+                "You were created on purpose, for a purpose. There are no accidents with God.",
+                "Don't compare your journey to others. God has a unique path designed just for you.",
+                "Your calling may not look like everyone else's, and that's exactly the point."
+            ],
+            "anxiety": [
+                "Anxiety is a thief — it steals your present by making you afraid of the future.",
+                "When you feel overwhelmed, remember: God is not anxious about your situation. Rest in His peace.",
+                "Give your worries to God. He can handle what you were never meant to carry."
+            ],
+            "relationships": [
+                "Healthy relationships start with knowing who you are in Christ first.",
+                "Don't let the wrong relationships distract you from your divine assignment."
+            ]
+        }
     },
     "steven_furtick": {
         "name": "Pastor Steven Furtick",
         "ministry": "Elevation Church",
-        "key_themes": [
-            "Faith and confidence in God",
-            "Overcoming obstacles and limitations",
-            "God's promises and provision",
-            "Breaking through barriers",
-            "Trusting God in uncertain times"
-        ],
-        "notable_teachings": [
-            "The enemy's job is to steal, kill, and destroy - don't let him",
-            "What God starts, He finishes",
-            "Your limitations are God's opportunities",
-            "Don't let your feelings determine your faith",
-            "What looks like a setback is often a setup for something greater"
-        ],
-        "style": "Passionate, energetic, motivational with practical faith applications"
+        "style": "Passionate, energetic, motivational with practical faith applications",
+        "topics": {
+            "faith": [
+                "What God starts, He finishes. Your job is to trust the process even when you can't see the end.",
+                "Don't let your feelings determine your faith. Faith is a decision, not an emotion.",
+                "Your limitations are God's opportunities. What you see as a problem, God sees as potential."
+            ],
+            "doubt": [
+                "Doubt is not the opposite of faith — it's a step on the journey of faith.",
+                "Even the disciples doubted. The question is not whether you doubt, but whether you keep walking.",
+                "God is not intimidated by your questions. Bring them to Him honestly."
+            ],
+            "perseverance": [
+                "What looks like a setback is often a setup for something greater.",
+                "Don't give up in the middle of your miracle. The breakthrough is closer than you think.",
+                "The enemy's job is to steal, kill, and destroy. Your job is to stand firm."
+            ],
+            "confidence": [
+                "Your confidence is not in yourself — it's in who God is and what He said about you.",
+                "Stop shrinking to fit spaces you were meant to outgrow.",
+                "God didn't bring you this far to leave you. Walk boldly."
+            ],
+            "fear": [
+                "Fear will always give you a reason to quit. Faith will always give you a reason to continue.",
+                "The biggest enemy of your destiny is not the devil — it's your own doubt."
+            ],
+            "purpose": [
+                "You are not an accident. God planned you before the foundation of the world.",
+                "Stop waiting for perfect conditions. Start where you are with what you have."
+            ]
+        }
     },
     "priscilla_shirer": {
         "name": "Priscilla Shirer",
         "ministry": "Going Beyond Ministries",
-        "key_themes": [
-            "Spiritual warfare and the armor of God",
-            "Prayer as a weapon",
-            "Hearing God's voice",
-            "Living as a discerning believer",
-            "The power of God's Word"
-        ],
-        "notable_teachings": [
-            "Prayer is not preparation for the battle - prayer IS the battle",
-            "The enemy wants to distract you from your divine assignment",
-            "God's Word is your sword - learn to use it",
-            "Discernment comes from spending time with God",
-            "Your identity in Christ is your greatest weapon"
-        ],
-        "style": "Bold, Scripture-rich, focused on spiritual warfare and practical application"
+        "style": "Bold, Scripture-rich, focused on spiritual warfare and practical application",
+        "topics": {
+            "spiritual_warfare": [
+                "Prayer is not preparation for the battle — prayer IS the battle.",
+                "The enemy wants to distract you from your divine assignment. Stay focused.",
+                "Put on the full armor of God. You're in a real fight, but you have real weapons."
+            ],
+            "prayer": [
+                "Prayer is your most powerful weapon. Use it before, during, and after every battle.",
+                "When you don't know what to pray, the Holy Spirit intercedes for you. You're never alone in prayer.",
+                "Specific prayers get specific answers. Be bold and precise with God."
+            ],
+            "identity": [
+                "Your identity in Christ is your greatest weapon against the enemy's lies.",
+                "The enemy can only defeat you if you forget who you are. Remember: you are God's child.",
+                "You are chosen, called, and equipped. Walk in that truth every single day."
+            ],
+            "discernment": [
+                "Discernment comes from spending time with God. You can't hear His voice in the noise.",
+                "God's Word is your sword — learn to use it. A soldier who doesn't know their weapon is vulnerable.",
+                "Not every open door is from God. Ask for discernment before you walk through."
+            ],
+            "fear": [
+                "Fear is the enemy's strategy to keep you from your God-given assignment.",
+                "When you feel afraid, remember who goes before you. The battle is already won."
+            ],
+            "strength": [
+                "You don't have to be strong in your own power. God's strength is made perfect in your weakness.",
+                "When you feel like you can't go on, that's when God shows up the most."
+            ]
+        }
     }
 }
 
-def get_teachers_knowledge() -> str:
-    """Generate concise knowledge base content from featured teachers"""
-    names = [t['name'] for t in FEATURED_TEACHERS.values()]
-    return f"\nDraw wisdom from teachers: {', '.join(names)}.\n"
+def get_relevant_teacher_wisdom(topics: list) -> str:
+    """Get relevant teacher quotes based on the topics being discussed"""
+    wisdom = []
+    topic_map = {
+        "prayer": "prayer", "pray": "prayer", "praying": "prayer",
+        "fear": "fear", "afraid": "fear", "scared": "fear", "worry": "fear", "anxious": "fear", "anxiety": "anxiety",
+        "identity": "identity", "who am i": "identity", "worth": "self_worth", "value": "self_worth",
+        "purpose": "purpose", "calling": "purpose", "destiny": "purpose", "future": "purpose",
+        "faith": "faith", "believe": "faith", "trust": "faith",
+        "doubt": "doubt", "unsure": "doubt", "confused": "doubt",
+        "holy spirit": "holy_spirit", "spirit": "holy_spirit",
+        "grow": "growth", "growing": "growth", "mature": "growth",
+        "strong": "strength", "strength": "strength", "weak": "strength",
+        "fight": "spiritual_warfare", "battle": "spiritual_warfare", "enemy": "spiritual_warfare", "devil": "spiritual_warfare",
+        "confident": "confidence", "confidence": "confidence", "bold": "confidence",
+        "give up": "perseverance", "quit": "perseverance", "hard": "perseverance", "difficult": "perseverance",
+        "friend": "relationships", "relationship": "relationships", "lonely": "relationships",
+        "discern": "discernment", "decision": "discernment", "choose": "discernment",
+        "self worth": "self_worth", "not good enough": "self_worth",
+    }
+    
+    matched_topics = set()
+    for topic_keyword in topics:
+        topic_lower = topic_keyword.lower()
+        for keyword, mapped_topic in topic_map.items():
+            if keyword in topic_lower:
+                matched_topics.add(mapped_topic)
+    
+    if not matched_topics:
+        matched_topics = {"faith", "purpose"}  # Default
+    
+    for teacher_id, teacher in FEATURED_TEACHERS.items():
+        for topic in matched_topics:
+            if topic in teacher["topics"]:
+                quotes = teacher["topics"][topic][:1]  # Take first quote per topic per teacher
+                for q in quotes:
+                    wisdom.append(f'{teacher["name"]}: "{q}"')
+    
+    return "\n".join(wisdom[:4])  # Max 4 quotes to keep prompt focused
 
 # ==================== SAFETY FILTERING ====================
 
@@ -634,68 +751,194 @@ def post_process_safety(response: str) -> str:
             return "I'd love to share something wonderful from the Bible with you! What would you like to learn about?"
     return response
 
+# ==================== USER PROFILE SYSTEM ====================
+
+async def get_or_create_user_profile(child_id: str) -> dict:
+    """Get or create an adaptive user profile that learns from conversations"""
+    profile = await db.user_profiles.find_one({"child_id": child_id}, {"_id": 0})
+    if profile:
+        return profile
+    
+    profile = {
+        "child_id": child_id,
+        "topics_interested": [],
+        "fears_concerns": [],
+        "strengths": [],
+        "struggles": [],
+        "conversation_count": 0,
+        "personality_notes": "",
+        "growth_milestones": [],
+        "favorite_verses": [],
+        "last_topics": [],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.user_profiles.insert_one({**profile})
+    return profile
+
+async def update_user_profile(child_id: str, message: str, response: str, age_tier: str):
+    """Analyze conversation and update user profile (runs in background)"""
+    try:
+        profile = await get_or_create_user_profile(child_id)
+        
+        analysis_client = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"profile_analysis_{child_id}_{uuid.uuid4().hex[:8]}",
+            system_message="""You analyze conversations between a child and a Bible guide to learn about the child.
+Return ONLY valid JSON with these fields:
+{
+  "topics": ["list of topics discussed"],
+  "emotions": ["any emotions expressed: fear, joy, confusion, etc."],
+  "struggles": ["any struggles or concerns mentioned"],
+  "strengths": ["any positive traits or growth shown"],
+  "personality_note": "one sentence observation about the child (empty string if nothing new)"
+}
+If a field has nothing to add, use an empty list or empty string. Return ONLY the JSON."""
+        ).with_model("openai", "gpt-4o-mini")
+        
+        analysis_text = await analysis_client.send_message(
+            UserMessage(text=f"Child's message: {message}\nBible Buddy's response: {response}")
+        )
+        
+        # Parse the analysis
+        import json as json_module
+        # Clean the response - remove markdown code blocks if present
+        clean = analysis_text.strip()
+        if clean.startswith("```"):
+            clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+            clean = clean.rsplit("```", 1)[0]
+        
+        analysis = json_module.loads(clean)
+        
+        # Update profile incrementally
+        update_ops = {
+            "$inc": {"conversation_count": 1},
+            "$set": {
+                "last_topics": analysis.get("topics", []),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            "$addToSet": {}
+        }
+        
+        add_to_set = {}
+        if analysis.get("topics"):
+            add_to_set["topics_interested"] = {"$each": analysis["topics"][:3]}
+        if analysis.get("emotions") or analysis.get("struggles"):
+            struggles = analysis.get("struggles", []) + [e for e in analysis.get("emotions", []) if e in ["fear", "anxiety", "sadness", "confusion", "doubt", "loneliness"]]
+            if struggles:
+                add_to_set["fears_concerns"] = {"$each": struggles[:3]}
+        if analysis.get("strengths"):
+            add_to_set["strengths"] = {"$each": analysis["strengths"][:2]}
+        
+        if add_to_set:
+            update_ops["$addToSet"] = add_to_set
+        else:
+            del update_ops["$addToSet"]
+        
+        if analysis.get("personality_note"):
+            update_ops["$set"]["personality_notes"] = analysis["personality_note"]
+        
+        await db.user_profiles.update_one({"child_id": child_id}, update_ops, upsert=True)
+        
+        # Trim arrays to prevent unbounded growth (keep last 20 items)
+        for field in ["topics_interested", "fears_concerns", "strengths", "struggles"]:
+            await db.user_profiles.update_one(
+                {"child_id": child_id},
+                [{"$set": {field: {"$slice": [f"${field}", -20]}}}]
+            )
+        
+    except Exception as e:
+        logger.error(f"Profile update error: {e}")
+
+def build_user_context(profile: dict) -> str:
+    """Build a concise user context string for the AI prompt"""
+    parts = []
+    
+    if profile.get("conversation_count", 0) > 0:
+        parts.append(f"You've had {profile['conversation_count']} conversations with this child.")
+    
+    if profile.get("topics_interested"):
+        recent = profile["topics_interested"][-8:]
+        parts.append(f"They're interested in: {', '.join(recent)}.")
+    
+    if profile.get("fears_concerns"):
+        recent = list(set(profile["fears_concerns"][-5:]))
+        parts.append(f"They've expressed concerns about: {', '.join(recent)}. Be extra sensitive and encouraging about these areas.")
+    
+    if profile.get("strengths"):
+        recent = list(set(profile["strengths"][-5:]))
+        parts.append(f"Their strengths: {', '.join(recent)}. Acknowledge and build on these.")
+    
+    if profile.get("personality_notes"):
+        parts.append(f"About this child: {profile['personality_notes']}")
+    
+    if profile.get("last_topics"):
+        parts.append(f"Recent topics: {', '.join(profile['last_topics'][:3])}.")
+    
+    return "\n".join(parts) if parts else ""
+
 # ==================== AGE-TIER PROMPTS ====================
 
-def get_age_tier_system_prompt(age_tier: str, preferred_translation: str = "NIV") -> str:
-    """Get age-appropriate system prompt"""
-    teachers_knowledge = get_teachers_knowledge()
+def get_age_tier_system_prompt(age_tier: str, preferred_translation: str = "NIV", user_context: str = "", teacher_wisdom: str = "") -> str:
+    """Get age-appropriate system prompt with user context and teacher wisdom"""
     
-    base_rules = f"""You are Bible Buddy, a warm Bible guide for children.
+    base_rules = f"""You are Bible Buddy — a personal Bible coach and spiritual advisor for this specific child. You KNOW this child. You remember their journey, their fears, their growth. You speak the Bible into their life like a loving mentor.
 Bible: {preferred_translation}
-{teachers_knowledge}
-RULES: Cite 1-2 Bible verses. Never discuss violence, death in graphic detail, politics, or inappropriate topics."""
+RULES: 
+- Cite 1-2 Bible verses
+- Never discuss violence/death graphically, politics, or inappropriate topics
+- Be their personal coach — reference what you know about them when relevant
+- Use specific teacher wisdom when it fits the topic"""
+
+    user_section = ""
+    if user_context:
+        user_section = f"\n\nWHAT YOU KNOW ABOUT THIS CHILD:\n{user_context}"
+    
+    teacher_section = ""
+    if teacher_wisdom:
+        teacher_section = f"\n\nRELEVANT TEACHER WISDOM (weave naturally into your response — attribute by name):\n{teacher_wisdom}"
 
     age_prompts = {
-        "4-6": f"""{base_rules}
+        "4-6": f"""{base_rules}{user_section}{teacher_section}
 
-YOU ARE TALKING TO A 4-6 YEAR OLD (Preschool/Kindergarten). This is critical — adapt EVERYTHING:
-- Use ONLY words a 4-year-old knows. No big words. No abstract ideas.
-- Max 2-3 very short sentences. Each sentence should be 5-8 words max.
-- Start with excitement: "Wow!", "Guess what!", "How cool is this!"
-- Explain EVERYTHING through things they know: family, pets, toys, snacks, playground, bedtime
-- Example: Instead of "God is omnipresent" say "God is everywhere! He's with you when you play, when you eat, and even when you sleep!"
-- Instead of quoting a verse directly, retell it like a tiny story
-- Use feelings: happy, loved, safe, brave
-- End with something fun: a simple question or "Isn't that amazing?"
-- NEVER use words like: salvation, righteousness, covenant, eternal, grace (as theological term), sin, repentance""",
+YOU ARE TALKING TO A 4-6 YEAR OLD. Adapt EVERYTHING:
+- ONLY words a 4-year-old knows. Max 2-3 very short sentences (5-8 words each).
+- Be playful: "Wow!", "Guess what!", "How cool!"
+- Explain through things they know: family, pets, toys, snacks, playground
+- Retell verses as tiny stories. Use feelings: happy, loved, safe, brave.
+- NEVER use: salvation, righteousness, covenant, eternal, sin, repentance
+- If you know something about this child, reference it: "Remember when you asked about...?" """,
 
-        "7-9": f"""{base_rules}
+        "7-9": f"""{base_rules}{user_section}{teacher_section}
 
-YOU ARE TALKING TO A 7-9 YEAR OLD (Early Elementary). Adapt your language:
-- Use clear, simple sentences. Keep answers to 3-4 sentences.
-- You can use slightly bigger words but always explain them: "Grace means getting a gift you didn't earn — like when someone is extra nice to you even when you mess up!"
-- Connect Bible stories to their everyday life: school, friends, family, sports, homework
-- Quote short Bible verses and explain what they mean in kid-friendly language
-- Be enthusiastic and encouraging — use "That's a great question!" or "I love that you asked this!"
-- Ask a follow-up question to keep them engaged: "What do you think about that?" or "Have you ever felt that way?"
-- Use simple analogies: "Prayer is like talking to your best friend — except this friend is God!"
-- Avoid: complex theology, denominational debates, scary topics""",
+YOU ARE TALKING TO A 7-9 YEAR OLD. Adapt your language:
+- Clear, simple sentences. 3-4 sentences max.
+- Explain big words: "Grace means getting a gift you didn't earn!"
+- Connect to their life: school, friends, family, sports
+- Be enthusiastic: "Great question!" "I love that you asked!"
+- If you know this child's interests or struggles, connect your answer to them personally
+- When using teacher wisdom, say it simply: "A wise teacher named [name] once said..." """,
 
-        "10-12": f"""{base_rules}
+        "10-12": f"""{base_rules}{user_section}{teacher_section}
 
-YOU ARE TALKING TO A 10-12 YEAR OLD (Upper Elementary/Pre-teen). They can handle more depth:
-- Use age-appropriate vocabulary — they know words like "faith", "courage", "forgiveness" but explain deeper concepts
-- Keep answers to 3-5 sentences with more substance
-- Give context: who wrote it, when, why it matters
-- Connect faith to real pre-teen challenges: peer pressure, fairness, feeling different, dealing with change
-- Quote verses directly and unpack their meaning: "This verse means..."
-- You can mention featured teachers by name and reference their ideas
-- Encourage them to think: "What would you do in that situation?" 
-- Be real — acknowledge that some Bible stories are complex or hard to understand
-- Use relatable examples from school, friendships, family dynamics""",
+YOU ARE TALKING TO A 10-12 YEAR OLD. More depth:
+- 3-5 sentences with substance. Age-appropriate vocabulary.
+- Give context: who, when, why it matters
+- Connect to pre-teen challenges: peer pressure, fairness, change
+- Reference teachers by name: "As Pastor Steven Furtick says..."
+- If you know this child's concerns, address them directly and personally
+- Encourage thinking: "What would you do in that situation?" """,
 
-        "13-18": f"""{base_rules}
+        "13-18": f"""{base_rules}{user_section}{teacher_section}
 
-YOU ARE TALKING TO A 13-18 YEAR OLD (Teenager). Speak maturely:
-- Speak as a trusted mentor, not a children's teacher. Respect their intelligence.
-- Keep answers to 3-5 thoughtful sentences
-- Use proper theological terms but explain them naturally: "Sanctification — basically the lifelong journey of becoming more like who God made you to be"
-- Address real teen issues honestly: identity, doubt, anxiety, relationships, purpose, social media pressure
-- Quote teachers like Apostle Selman, Steven Furtick, Stephanie Ike, Priscilla Shirer when relevant
-- Be authentic — it's OK to say "This is a tough question that Christians have discussed for centuries"
-- Encourage critical thinking: "Here's what the Bible says, and here's how you might apply it to your life"
-- Don't be preachy or condescending. Be genuine.
-- Connect Scripture to modern life, culture, and teen experiences"""
+YOU ARE TALKING TO A 13-18 YEAR OLD. Speak as a mentor:
+- 3-5 thoughtful sentences. Respect their intelligence.
+- Use theological terms naturally: "Sanctification — the journey of becoming who God made you to be"
+- Address real issues: identity, doubt, anxiety, relationships, purpose, social media
+- Quote teachers directly: 'As Apostle Selman teaches, "..."'
+- Be authentic — acknowledge hard questions honestly
+- If you know their struggles, speak directly into those areas with Scripture and wisdom
+- Connect everything to their real life and personal growth journey"""
     }
     
     return age_prompts.get(age_tier, age_prompts["7-9"])
@@ -991,7 +1234,17 @@ async def chat(request_data: ChatRequest):
         child = await db.children.find_one({"child_id": request_data.child_id}, {"_id": 0})
         preferred_translation = child.get("preferred_translation", "NIV") if child else "NIV"
         
-        system_prompt = get_age_tier_system_prompt(request_data.age_tier, preferred_translation)
+        # Get user profile for personalization
+        user_profile = await get_or_create_user_profile(request_data.child_id)
+        user_context = build_user_context(user_profile)
+        
+        # Get relevant teacher wisdom based on the question
+        message_words = request_data.message.lower().split()
+        teacher_wisdom = get_relevant_teacher_wisdom(message_words + [request_data.message.lower()])
+        
+        system_prompt = get_age_tier_system_prompt(
+            request_data.age_tier, preferred_translation, user_context, teacher_wisdom
+        )
         
         chat_client = LlmChat(
             api_key=EMERGENT_LLM_KEY,
@@ -1013,6 +1266,11 @@ async def chat(request_data: ChatRequest):
     session_id = request_data.session_id or str(uuid.uuid4())
     if request_data.include_audio and eleven_client:
         asyncio.create_task(_background_tts(response_text, session_id))
+    
+    # Update user profile in background (learns from this conversation)
+    asyncio.create_task(update_user_profile(
+        request_data.child_id, request_data.message, response_text, request_data.age_tier
+    ))
     
     await save_chat_messages(session_id, request_data.child_id, request_data.age_tier,
                             request_data.message, response_text, None)
