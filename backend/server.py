@@ -27,6 +27,11 @@ AUDIO_CACHE_DIR.mkdir(exist_ok=True)
 
 # Background TTS task tracker
 _tts_tasks: Dict[str, asyncio.Task] = {}
+
+# In-memory cache for KB age-adapted answers (avoids MongoDB round-trip)
+_kb_cache: Dict[str, str] = {}
+# In-memory cache for user profiles
+_profile_cache: Dict[str, dict] = {}
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
@@ -487,23 +492,23 @@ def find_knowledge_base_answer(question: str) -> Optional[Dict]:
         if signal in clean_question:
             return None  # Force AI path for personal questions
     
-    # Exact match only
+    # Exact match
     if clean_question in KNOWLEDGE_BASE:
         return KNOWLEDGE_BASE[clean_question]
     
-    # Strict partial match — require close match to a KB key
+    # Partial match - question contains a key or key contains the question
     for key, value in KNOWLEDGE_BASE.items():
-        # Full substring match (at least 4 words in key)
+        if key in clean_question or clean_question in key:
+            return value
+    
+    # Word overlap match - require 70%+ of key words present
+    for key, value in KNOWLEDGE_BASE.items():
         key_words = set(key.split())
-        if len(key_words) < 3:
-            continue
-        if key == clean_question:
-            return value
-        # Require 80%+ word overlap with at least 3 matching words
         question_words = set(clean_question.split())
-        overlap = len(key_words & question_words)
-        if overlap >= 3 and overlap >= len(key_words) * 0.8:
-            return value
+        if len(key_words) >= 2:
+            overlap = len(key_words & question_words)
+            if overlap >= max(2, len(key_words) * 0.7):
+                return value
     
     return None
 
@@ -1175,38 +1180,40 @@ async def chat(request_data: ChatRequest):
     if kb_answer:
         session_id = request_data.session_id or str(uuid.uuid4())
         
-        # Rephrase KB answer for the specific age tier
-        response_text = kb_answer["answer"]
-        try:
-            age_labels = {"4-6": "a 4-6 year old preschooler (use very simple tiny words, max 2-3 short sentences, be playful with 'Wow!' and 'Guess what!')", 
-                          "7-9": "a 7-9 year old child (clear simple language, 3-4 sentences, connect to school/friends, explain any big words)", 
-                          "10-12": "a 10-12 year old pre-teen (more depth, 3-5 sentences, give context, connect to real challenges)", 
-                          "13-18": "a 13-18 year old teenager (speak maturely as a mentor, 3-5 thoughtful sentences, use theological terms with natural explanations, be authentic)"}
-            age_label = age_labels.get(request_data.age_tier, age_labels["7-9"])
-            
-            # Check cache for age-adapted version
-            cache_key = f"kb_{hashlib.md5((kb_answer['answer'] + request_data.age_tier).encode()).hexdigest()[:16]}"
+        # Use in-memory cache for instant age-adapted KB answers
+        cache_key = f"kb_{hashlib.md5((kb_answer['answer'] + request_data.age_tier).encode()).hexdigest()[:16]}"
+        
+        if cache_key in _kb_cache:
+            response_text = _kb_cache[cache_key]
+        else:
+            # Check MongoDB cache
             cached = await db.kb_age_cache.find_one({"cache_key": cache_key}, {"_id": 0})
-            
             if cached:
                 response_text = cached["response"]
+                _kb_cache[cache_key] = response_text
             else:
-                rephrase_client = LlmChat(
-                    api_key=EMERGENT_LLM_KEY,
-                    session_id=f"rephrase_{cache_key}",
-                    system_message="You rephrase Bible answers for specific age groups. Keep the same facts and Bible verses. Just adapt the language and depth. Return ONLY the rephrased answer, nothing else."
-                ).with_model("openai", "gpt-4o-mini")
-                
-                response_text = await rephrase_client.send_message(
-                    UserMessage(text=f"Rephrase this Bible answer for {age_label}:\n\n{kb_answer['answer']}")
-                )
-                # Cache it
-                await db.kb_age_cache.insert_one({"cache_key": cache_key, "response": response_text, "age_tier": request_data.age_tier})
-        except Exception as e:
-            logger.error(f"KB rephrase error: {e}")
-            # Fall back to original KB answer
+                # Generate and cache (first time only — subsequent requests will be instant)
+                response_text = kb_answer["answer"]
+                try:
+                    age_labels = {"4-6": "a 4-6 year old preschooler (very simple tiny words, 2-3 short sentences, playful)", 
+                                  "7-9": "a 7-9 year old (clear simple language, 3-4 sentences, explain big words)", 
+                                  "10-12": "a 10-12 year old pre-teen (more depth, 3-5 sentences)", 
+                                  "13-18": "a teenager (mature mentor tone, 3-5 thoughtful sentences)"}
+                    age_label = age_labels.get(request_data.age_tier, age_labels["7-9"])
+                    rephrase_client = LlmChat(
+                        api_key=EMERGENT_LLM_KEY,
+                        session_id=f"rephrase_{cache_key}",
+                        system_message="Rephrase this Bible answer for the specified age group. Keep facts and verses. Adapt language only. Return ONLY the rephrased text."
+                    ).with_model("openai", "gpt-4o-mini")
+                    response_text = await rephrase_client.send_message(
+                        UserMessage(text=f"For {age_label}:\n\n{kb_answer['answer']}")
+                    )
+                    _kb_cache[cache_key] = response_text
+                    await db.kb_age_cache.insert_one({"cache_key": cache_key, "response": response_text, "age_tier": request_data.age_tier})
+                except Exception as e:
+                    logger.error(f"KB rephrase error: {e}")
         
-        # Check if audio is already cached for this specific response
+        # Check if audio is cached
         audio_url = None
         if request_data.include_audio and eleven_client:
             text_hash = hashlib.md5(response_text.encode()).hexdigest()[:16]
@@ -1793,26 +1800,26 @@ async def prewarm_kb_audio():
     
     if cached == total:
         logger.info(f"All {total} KB audio files already cached")
-        return
-    
-    # Generate missing audio in background
-    async def _generate_all():
-        generated = 0
-        for question, item in KNOWLEDGE_BASE.items():
-            text_hash = hashlib.md5(item["answer"].encode()).hexdigest()[:16]
-            audio_path = AUDIO_CACHE_DIR / f"{text_hash}.mp3"
-            if not audio_path.exists():
-                try:
-                    await generate_tts_audio(item["answer"])
-                    generated += 1
-                    if generated % 5 == 0:
-                        logger.info(f"Pre-warmed {generated} KB audio files...")
-                except Exception as e:
-                    logger.error(f"KB audio pre-warm error: {e}")
-        logger.info(f"KB audio pre-warming complete: {generated} new files generated")
-    
-    asyncio.create_task(_generate_all())
-    logger.info(f"Started KB audio pre-warming ({cached}/{total} already cached)")
+    else:
+        async def _generate_all():
+            generated = 0
+            for question, item in KNOWLEDGE_BASE.items():
+                text_hash = hashlib.md5(item["answer"].encode()).hexdigest()[:16]
+                audio_path = AUDIO_CACHE_DIR / f"{text_hash}.mp3"
+                if not audio_path.exists():
+                    try:
+                        await generate_tts_audio(item["answer"])
+                        generated += 1
+                    except Exception as e:
+                        logger.error(f"KB audio pre-warm error: {e}")
+            logger.info(f"KB audio pre-warming complete: {generated} new files")
+        asyncio.create_task(_generate_all())
+        logger.info(f"Started KB audio pre-warming ({cached}/{total} cached)")
+
+    # Pre-load KB age cache into memory
+    async for doc in db.kb_age_cache.find({}, {"_id": 0}):
+        _kb_cache[doc["cache_key"]] = doc["response"]
+    logger.info(f"Loaded {len(_kb_cache)} KB age-adapted answers into memory")
 
 
 @app.on_event("shutdown")

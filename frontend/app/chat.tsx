@@ -44,7 +44,23 @@ interface Message {
 export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  // Fun typing messages that rotate
   const [isLoading, setIsLoading] = useState(false);
+  const typingMessages = useRef([
+    "Looking through my Bible...",
+    "Finding the perfect answer...",
+    "Thinking about this...",
+    "Opening God's Word...",
+  ]).current;
+  const [typingMsgIndex, setTypingMsgIndex] = useState(0);
+  
+  useEffect(() => {
+    if (!isLoading) return;
+    const interval = setInterval(() => {
+      setTypingMsgIndex(i => (i + 1) % typingMessages.length);
+    }, 1200);
+    return () => clearInterval(interval);
+  }, [isLoading]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [ageTier, setAgeTier] = useState('7-9');
   const [childId, setChildId] = useState('guest_child');
@@ -607,13 +623,13 @@ export default function ChatScreen() {
             <>
               {messages.map(renderMessage)}
               {isLoading && (
-                <View style={styles.typingContainer}>
+                <View style={styles.typingContainer} data-testid="typing-indicator">
                   <LinearGradient colors={['#667eea', '#764ba2']} style={styles.typingAvatar}>
                     <Text style={{ fontSize: 16 }}>📖</Text>
                   </LinearGradient>
                   <View style={styles.typingBubble}>
                     <ActivityIndicator size="small" color="#667eea" />
-                    <Text style={styles.typingText}>Thinking...</Text>
+                    <Text style={styles.typingText}>{typingMessages[typingMsgIndex]}</Text>
                   </View>
                 </View>
               )}
