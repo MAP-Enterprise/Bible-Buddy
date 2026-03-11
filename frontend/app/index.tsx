@@ -205,6 +205,15 @@ export default function HomeScreen() {
                 </LinearGradient>
               </TouchableOpacity>
 
+              {/* Memory Challenge */}
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/verse-challenge')} activeOpacity={0.9} data-testid="verse-challenge-btn">
+                <LinearGradient colors={['#6C5CE7', '#A29BFE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.buttonGradient}>
+                  <Ionicons name="trophy" size={24} color="#fff" />
+                  <Text style={styles.secondaryButtonText}>Memory Challenge</Text>
+                  <Ionicons name="arrow-forward-circle" size={24} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+
               {/* Add Child / Manage Profiles */}
               {childProfiles.length === 0 ? (
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/onboarding')} activeOpacity={0.8} data-testid="add-child-btn">
