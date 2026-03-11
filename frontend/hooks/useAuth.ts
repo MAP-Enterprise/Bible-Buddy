@@ -205,13 +205,15 @@ export function useAuth() {
     await clearAuth();
   };
 
-  const addChild = async (name: string, ageTier: string): Promise<{ success: boolean; child?: Child; error?: string }> => {
+  const addChild = async (name: string, ageTier: string, voiceId?: string): Promise<{ success: boolean; child?: Child; error?: string }> => {
     if (!state.token) return { success: false, error: 'Not authenticated' };
     try {
+      const body: any = { name, age_tier: ageTier };
+      if (voiceId) body.voice_id = voiceId;
       const res = await fetch(`${BACKEND_URL}/api/children`, {
         method: 'POST',
         headers: getHeaders(state.token),
-        body: JSON.stringify({ name, age_tier: ageTier }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {

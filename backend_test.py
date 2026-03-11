@@ -11,7 +11,7 @@ from typing import Dict, Any, List
 import time
 
 # Backend URL from environment
-BACKEND_URL = "https://bible-buddy-auth.preview.emergentagent.com/api"
+BACKEND_URL = "https://voice-chat-kids.preview.emergentagent.com/api"
 
 class BibleBuddyTester:
     def __init__(self):

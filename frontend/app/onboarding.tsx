@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthContext } from '../contexts/AuthContext';
+import VoicePicker from '../components/VoicePicker';
 
 const AGE_TIERS = [
   { value: '4-6', label: '4-6 years', emoji: '\ud83e\uddd2', desc: 'Preschool', color: '#FF6B6B', bg: '#FFE8E8' },
@@ -31,6 +32,7 @@ export default function OnboardingScreen() {
   const [childName, setChildName] = useState('');
   const [selectedAgeTier, setSelectedAgeTier] = useState('');
   const [consentGiven, setConsentGiven] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState('EXAVITQu4vr4xnSDxMaL');
   const [isLoading, setIsLoading] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -68,6 +70,9 @@ export default function OnboardingScreen() {
       }
       setStep(3);
     } else if (step === 3) {
+      // Voice selection - always has a default, so just continue
+      setStep(4);
+    } else if (step === 4) {
       if (!consentGiven) {
         showAlert('Consent Required', 'Please provide parental consent to continue');
         return;
@@ -81,7 +86,7 @@ export default function OnboardingScreen() {
     try {
       if (isAuthenticated) {
         // Create child via API
-        const result = await addChild(childName.trim(), selectedAgeTier);
+        const result = await addChild(childName.trim(), selectedAgeTier, selectedVoice);
         if (!result.success) {
           showAlert('Error', result.error || 'Failed to create profile');
           setIsLoading(false);
@@ -207,7 +212,7 @@ export default function OnboardingScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.progressContainer}>
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <View key={s} style={[styles.progressDot, step >= s && styles.progressDotActive]} />
             ))}
           </View>

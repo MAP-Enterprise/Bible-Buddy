@@ -11,7 +11,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  addChild: (name: string, ageTier: string) => Promise<{ success: boolean; child?: Child; error?: string }>;
+  addChild: (name: string, ageTier: string, voiceId?: string) => Promise<{ success: boolean; child?: Child; error?: string }>;
   setActiveChild: (child: Child) => Promise<void>;
   refreshChildren: () => Promise<void>;
 }

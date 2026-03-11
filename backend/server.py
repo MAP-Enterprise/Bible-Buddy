@@ -81,6 +81,7 @@ class ChildProfile(BaseModel):
     age_tier: str = "7-9"
     avatar: Optional[str] = None
     preferred_translation: str = "NIV"
+    voice_id: str = "EXAVITQu4vr4xnSDxMaL"
     parental_consent_given: bool = False
     consent_timestamp: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -90,6 +91,7 @@ class ChildProfileCreate(BaseModel):
     age_tier: str = "7-9"
     avatar: Optional[str] = None
     preferred_translation: str = "NIV"
+    voice_id: str = "EXAVITQu4vr4xnSDxMaL"
 
 # Session Model
 class UserSession(BaseModel):
@@ -702,6 +704,43 @@ def get_relevant_teacher_wisdom(topics: list) -> str:
     
     return "\n".join(wisdom[:4])  # Max 4 quotes to keep prompt focused
 
+# ==================== VOICE OPTIONS ====================
+
+VOICE_OPTIONS = [
+    {"id": "EXAVITQu4vr4xnSDxMaL", "name": "Sarah", "gender": "female", "accent": "American", "description": "Warm and friendly", "preview_text": "Hi! I'm Sarah, your Bible Buddy!"},
+    {"id": "21m00Tcm4TlvDq8ikWAM", "name": "Grace", "gender": "female", "accent": "American", "description": "Calm and gentle", "preview_text": "Hi! I'm Grace, your Bible Buddy!"},
+    {"id": "jBpfuIE2acCO8z3wKNLl", "name": "Gigi", "gender": "female", "accent": "American", "description": "Young and energetic", "preview_text": "Hi! I'm Gigi, your Bible Buddy!"},
+    {"id": "XB0fDUnXU5powFXDhCwa", "name": "Charlotte", "gender": "female", "accent": "British", "description": "Warm British storyteller", "preview_text": "Hi! I'm Charlotte, your Bible Buddy!"},
+    {"id": "pFZP5JQG7iQjIQuC4Bku", "name": "Lily", "gender": "female", "accent": "British", "description": "Bright and cheerful", "preview_text": "Hi! I'm Lily, your Bible Buddy!"},
+    {"id": "FGY2WhTYpPnrIDTdsKH5", "name": "Amara", "gender": "female", "accent": "African", "description": "Rich and soothing", "preview_text": "Hi! I'm Amara, your Bible Buddy!"},
+    {"id": "ErXwobaYiN019PkySvjV", "name": "David", "gender": "male", "accent": "American", "description": "Friendly and clear", "preview_text": "Hi! I'm David, your Bible Buddy!"},
+    {"id": "TxGEqnHWrfWFTfGW9XjX", "name": "Joshua", "gender": "male", "accent": "American", "description": "Strong and encouraging", "preview_text": "Hi! I'm Joshua, your Bible Buddy!"},
+    {"id": "VR6AewLTigWG4xSOukaG", "name": "Emmanuel", "gender": "male", "accent": "British", "description": "Confident and warm", "preview_text": "Hi! I'm Emmanuel, your Bible Buddy!"},
+    {"id": "pNInz6obpgDQGcFmaJgB", "name": "Caleb", "gender": "male", "accent": "American", "description": "Deep and reassuring", "preview_text": "Hi! I'm Caleb, your Bible Buddy!"},
+]
+
+DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"  # Sarah
+
+@api_router.get("/voices")
+async def get_voice_options():
+    """Get available voice options"""
+    return {"voices": VOICE_OPTIONS, "default_voice_id": DEFAULT_VOICE_ID}
+
+@api_router.post("/voices/preview")
+async def preview_voice(voice_id: str):
+    """Generate a short preview of a voice"""
+    if not eleven_client:
+        raise HTTPException(status_code=503, detail="TTS not configured")
+    
+    voice = next((v for v in VOICE_OPTIONS if v["id"] == voice_id), None)
+    if not voice:
+        raise HTTPException(status_code=404, detail="Voice not found")
+    
+    audio_url = await generate_tts_audio(voice["preview_text"], voice_id)
+    if not audio_url:
+        raise HTTPException(status_code=500, detail="Failed to generate preview")
+    return {"audio_url": audio_url}
+
 # ==================== SAFETY FILTERING ====================
 
 UNSAFE_PATTERNS = [
@@ -1252,6 +1291,12 @@ async def give_parental_consent(child_id: str, request: Request):
 async def chat(request_data: ChatRequest):
     """Main chat endpoint - returns text immediately, audio generated in background"""
     
+    # Look up child's preferred voice
+    child_voice = DEFAULT_VOICE_ID
+    child_record = await db.children.find_one({"child_id": request_data.child_id}, {"_id": 0, "voice_id": 1})
+    if child_record and child_record.get("voice_id"):
+        child_voice = child_record["voice_id"]
+    
     # Safety check
     safety_check = check_content_safety(request_data.message)
     if not safety_check.is_safe:
@@ -1318,7 +1363,7 @@ async def chat(request_data: ChatRequest):
             if audio_path.exists():
                 audio_url = f"/api/audio/{text_hash}.mp3"
             else:
-                asyncio.create_task(_background_tts(response_text, session_id))
+                asyncio.create_task(_background_tts(response_text, session_id, child_voice))
         
         await save_chat_messages(session_id, request_data.child_id, request_data.age_tier, 
                                 request_data.message, response_text, audio_url)
@@ -1372,7 +1417,7 @@ async def chat(request_data: ChatRequest):
     # DON'T wait for TTS - return text immediately, generate audio in background
     session_id = request_data.session_id or str(uuid.uuid4())
     if request_data.include_audio and eleven_client:
-        asyncio.create_task(_background_tts(response_text, session_id))
+        asyncio.create_task(_background_tts(response_text, session_id, child_voice))
     
     # Update user profile in background (learns from this conversation)
     asyncio.create_task(update_user_profile(
@@ -1395,10 +1440,10 @@ async def chat(request_data: ChatRequest):
         from_knowledge_base=False
     )
 
-async def _background_tts(text: str, session_id: str):
+async def _background_tts(text: str, session_id: str, voice_id: str = "EXAVITQu4vr4xnSDxMaL"):
     """Generate TTS in background and update the session"""
     try:
-        audio_url = await generate_tts_audio(text)
+        audio_url = await generate_tts_audio(text, voice_id)
         if audio_url:
             # Update the session's last message with audio URL
             await db.sessions.update_one(
@@ -1584,8 +1629,9 @@ async def generate_tts_audio(text: str, voice_id: str = "EXAVITQu4vr4xnSDxMaL") 
         return None
     
     try:
-        # Create hash of text for caching
-        text_hash = hashlib.md5(text.encode()).hexdigest()[:16]
+        # Create hash of text+voice for caching (different voice = different cache)
+        cache_key = f"{text}_{voice_id}"
+        text_hash = hashlib.md5(cache_key.encode()).hexdigest()[:16]
         audio_filename = f"{text_hash}.mp3"
         audio_path = AUDIO_CACHE_DIR / audio_filename
         
