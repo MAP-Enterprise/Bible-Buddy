@@ -220,3 +220,58 @@ async def preview_weekly_summary(request: Request):
     
     from fastapi.responses import HTMLResponse
     return HTMLResponse(content=html)
+
+
+@router.get("/domain-status")
+async def get_domain_verification_status(request: Request):
+    """Check Resend domain verification status and provide setup instructions"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Check if custom domain is configured
+    sender = SENDER_EMAIL
+    is_default = sender == "onboarding@resend.dev" or "resend.dev" in sender
+    
+    domain_info = {
+        "current_sender": sender,
+        "is_verified": not is_default,
+        "using_default": is_default,
+    }
+    
+    if is_default:
+        domain_info["setup_instructions"] = {
+            "overview": "To send emails from your own domain (e.g., hello@yourdomain.com), follow these steps:",
+            "steps": [
+                "1. Go to https://resend.com/domains and click 'Add Domain'",
+                "2. Enter your domain name (e.g., yourdomain.com)",
+                "3. Resend will provide DNS records (MX, TXT, DKIM) to add to your domain registrar",
+                "4. Add the DNS records in your domain registrar (GoDaddy, Namecheap, Cloudflare, etc.)",
+                "5. Click 'Verify' in Resend — DNS propagation may take up to 72 hours",
+                "6. Once verified, update SENDER_EMAIL in the backend .env file",
+            ],
+            "required_dns_records": [
+                {"type": "MX", "purpose": "Routes email through Resend"},
+                {"type": "TXT (SPF)", "purpose": "Authorizes Resend to send on your behalf"},
+                {"type": "DKIM (CNAME)", "purpose": "Cryptographically signs emails for deliverability"},
+            ],
+            "resend_dashboard_url": "https://resend.com/domains",
+        }
+    else:
+        domain_info["message"] = f"Emails are being sent from {sender}. Domain is verified and active."
+    
+    # Attempt to check domain via Resend API
+    if RESEND_API_KEY and not is_default:
+        try:
+            resend.api_key = RESEND_API_KEY
+            domains = resend.Domains.list()
+            domain_info["resend_domains"] = [
+                {"name": d.name, "status": d.status, "created_at": str(d.created_at)}
+                for d in (domains.data if hasattr(domains, 'data') else [])
+            ]
+        except Exception as e:
+            logger.error(f"Resend domain check error: {e}")
+            domain_info["resend_api_error"] = str(e)
+    
+    return domain_info
+

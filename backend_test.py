@@ -1,368 +1,522 @@
 #!/usr/bin/env python3
 """
-Bible Buddy Backend Testing Suite - New Features
-Tests for 3 newly implemented features:
-1. 365 Verse of the Day
-2. KB Age Pre-warming 
-3. Persistent Conversation History
+Comprehensive Backend Testing for Bible Buddy - 5 New Features
+Testing against production URL: https://voice-chat-kids.preview.emergentagent.com/api
+
+Features to Test:
+1. Challenge Stats in Parent Dashboard
+2. COPPA-Compliant Consent 
+3. Refactored Routes (all still working)
+4. Family Leaderboard
+5. Resend Domain Verification
 """
 
-import asyncio
 import aiohttp
+import asyncio
 import json
-import time
+import sys
 from datetime import datetime
-from typing import Dict, Any, Optional
 
-# Backend URL from environment
-BACKEND_URL = "https://voice-chat-kids.preview.emergentagent.com/api"
+# Base URL for testing
+BASE_URL = "https://voice-chat-kids.preview.emergentagent.com/api"
 
 class BibleBuddyTester:
     def __init__(self):
-        self.session: Optional[aiohttp.ClientSession] = None
-        self.auth_token: Optional[str] = None
+        self.session = None
         self.test_results = []
-        self.parent_data = {}
-        self.child_data = {}
+        self.auth_token = None
+        self.alice_child_id = None
+        self.bob_child_id = None
         
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
         return self
-    
+        
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.session:
             await self.session.close()
-    
-    def log_test(self, test_name: str, status: str, details: str = "", response_data: Any = None):
-        """Log test result"""
-        result = {
+            
+    def log_test(self, test_name: str, success: bool, details: str = "", response_data=None):
+        """Log test results"""
+        status = "✅ PASS" if success else "❌ FAIL"
+        print(f"{status}: {test_name}")
+        if details:
+            print(f"   → {details}")
+        if response_data and not success:
+            print(f"   → Response: {response_data}")
+        print()
+        
+        self.test_results.append({
             "test": test_name,
-            "status": status,
+            "success": success,
             "details": details,
-            "timestamp": datetime.now().isoformat(),
-            "response_data": response_data
-        }
-        self.test_results.append(result)
-        status_icon = "✅" if status == "PASS" else "❌" if status == "FAIL" else "⚠️"
-        print(f"{status_icon} {test_name}: {details}")
-    
-    async def make_request(self, method: str, endpoint: str, data: Dict = None, headers: Dict = None) -> tuple[int, Dict]:
-        """Make HTTP request and return status code and response data"""
-        url = f"{BACKEND_URL}{endpoint}"
-        request_headers = headers or {}
+            "timestamp": datetime.now().isoformat()
+        })
         
-        if self.auth_token:
-            request_headers["Authorization"] = f"Bearer {self.auth_token}"
+    async def make_request(self, method: str, endpoint: str, data=None, auth_required=True):
+        """Make HTTP request with error handling"""
+        url = f"{BASE_URL}{endpoint}"
+        headers = {"Content-Type": "application/json"}
         
+        if auth_required and self.auth_token:
+            headers["Authorization"] = f"Bearer {self.auth_token}"
+            
         try:
-            async with self.session.request(method, url, json=data, headers=request_headers) as response:
-                try:
-                    response_data = await response.json()
-                except:
-                    response_data = {"text": await response.text()}
-                return response.status, response_data
-        except Exception as e:
-            return 0, {"error": str(e)}
-
-    # ==================== FEATURE 1: 365 VERSE OF THE DAY TESTS ====================
-    
-    async def test_verse_of_the_day_age_tiers(self):
-        """Test 1-5: Verse of the Day with different age tiers"""
-        
-        # Test 1: Age tier 7-9
-        status, data = await self.make_request("GET", "/verse-of-the-day?age_tier=7-9")
-        if status == 200:
-            required_fields = ["date", "verse", "reference", "theme", "explanation", "age_tier"]
-            missing_fields = [field for field in required_fields if field not in data]
-            if not missing_fields:
-                self.log_test("Verse of Day (7-9)", "PASS", 
-                             f"All required fields present. Theme: {data.get('theme')}, Reference: {data.get('reference')}", data)
-            else:
-                self.log_test("Verse of Day (7-9)", "FAIL", f"Missing fields: {missing_fields}", data)
-        else:
-            self.log_test("Verse of Day (7-9)", "FAIL", f"HTTP {status}", data)
-        
-        # Test 2: Age tier 4-6 (should be same verse but different explanation)
-        status, data_4_6 = await self.make_request("GET", "/verse-of-the-day?age_tier=4-6")
-        if status == 200:
-            required_fields = ["date", "verse", "reference", "theme", "explanation", "age_tier"]
-            missing_fields = [field for field in required_fields if field not in data_4_6]
-            if not missing_fields and data_4_6.get("age_tier") == "4-6":
-                self.log_test("Verse of Day (4-6)", "PASS", 
-                             f"Age-adapted explanation for 4-6. Theme: {data_4_6.get('theme')}", data_4_6)
-            else:
-                self.log_test("Verse of Day (4-6)", "FAIL", f"Missing fields or wrong age_tier: {missing_fields}", data_4_6)
-        else:
-            self.log_test("Verse of Day (4-6)", "FAIL", f"HTTP {status}", data_4_6)
-        
-        # Test 3: Age tier 13-18 (should be same verse but different explanation)
-        status, data_13_18 = await self.make_request("GET", "/verse-of-the-day?age_tier=13-18")
-        if status == 200:
-            required_fields = ["date", "verse", "reference", "theme", "explanation", "age_tier"]
-            missing_fields = [field for field in required_fields if field not in data_13_18]
-            if not missing_fields and data_13_18.get("age_tier") == "13-18":
-                self.log_test("Verse of Day (13-18)", "PASS", 
-                             f"Age-adapted explanation for teens. Theme: {data_13_18.get('theme')}", data_13_18)
-            else:
-                self.log_test("Verse of Day (13-18)", "FAIL", f"Missing fields or wrong age_tier: {missing_fields}", data_13_18)
-        else:
-            self.log_test("Verse of Day (13-18)", "FAIL", f"HTTP {status}", data_13_18)
-        
-        # Test 4: Verify March theme (today is March 11, 2026, day 70, should be Courage/Strength theme)
-        if hasattr(data, 'get') and data.get('theme'):
-            theme = data.get('theme', '').lower()
-            march_themes = ['courage', 'strength', 'brave', 'bold', 'fearless']
-            is_march_theme = any(march_theme in theme for march_theme in march_themes)
-            self.log_test("March Theme Check", 
-                         "PASS" if is_march_theme else "INFO", 
-                         f"March 11 theme: {data.get('theme')} {'(matches expected March themes)' if is_march_theme else '(different theme)'}")
-        
-        # Test 5: Caching verification (second call should be faster)
-        start_time = time.time()
-        status2, data2 = await self.make_request("GET", "/verse-of-the-day?age_tier=7-9")
-        response_time = time.time() - start_time
-        
-        if status2 == 200 and data == data2:
-            cache_status = "PASS" if response_time < 0.5 else "INFO"
-            self.log_test("Verse Caching", cache_status, 
-                         f"Second call: {response_time:.3f}s, identical response: {data == data2}")
-        else:
-            self.log_test("Verse Caching", "FAIL", f"Response mismatch or error: HTTP {status2}")
-
-    # ==================== FEATURE 2: KB AGE PRE-WARMING TESTS ====================
-    
-    async def test_kb_age_prewarming(self):
-        """Test 6-9: Knowledge Base Age Pre-warming with instant responses"""
-        
-        age_tiers = ["4-6", "7-9", "10-12", "13-18"]
-        question = "Who is Jesus?"
-        
-        for i, age_tier in enumerate(age_tiers, 6):
-            start_time = time.time()
-            
-            payload = {
-                "child_id": "test_child",
-                "message": question,
-                "age_tier": age_tier
-            }
-            
-            status, data = await self.make_request("POST", "/chat", payload)
-            response_time = time.time() - start_time
-            
-            if status == 200:
-                from_kb = data.get("from_knowledge_base", False)
-                response_text = data.get("response", "")
+            if method == "GET":
+                resp = await self.session.get(url, headers=headers)
+            elif method == "POST":
+                resp = await self.session.post(url, headers=headers, json=data)
+            elif method == "PATCH":
+                resp = await self.session.patch(url, headers=headers, json=data)
                 
-                if from_kb and response_text:
-                    # Calculate approximate response complexity for age verification
-                    avg_word_length = sum(len(word) for word in response_text.split()) / len(response_text.split()) if response_text.split() else 0
-                    
-                    self.log_test(f"KB Age Pre-warm ({age_tier})", "PASS", 
-                                 f"Instant KB response ({response_time:.3f}s), avg word length: {avg_word_length:.1f}, from_knowledge_base: True", 
-                                 {"response_snippet": response_text[:100] + "..." if len(response_text) > 100 else response_text})
-                else:
-                    self.log_test(f"KB Age Pre-warm ({age_tier})", "FAIL", 
-                                 f"Expected KB response but got from_knowledge_base: {from_kb}", data)
-            else:
-                self.log_test(f"KB Age Pre-warm ({age_tier})", "FAIL", f"HTTP {status}", data)
+            response_data = None
+            try:
+                response_data = await resp.json()
+            except:
+                response_data = {"text": await resp.text()}
+                
+            return resp.status, response_data
+            
+        except Exception as e:
+            return 500, {"error": str(e)}
+            
+    async def setup_test_user(self):
+        """Setup - Create test user with multiple children"""
+        print("🔧 SETUP: Creating test user with multiple children")
         
-        # Store responses for age adaptation comparison
-        self.kb_age_responses = {}
-
-    # ==================== FEATURE 3: PERSISTENT CONVERSATION HISTORY TESTS ====================
-    
-    async def test_persistent_conversation_history(self):
-        """Test 7-12: Complete conversation history persistence flow"""
-        
-        # Test 7: Register a fresh user
-        register_payload = {
-            "email": "persistence_test@test.com",
+        # Step 1: Register user
+        register_data = {
+            "email": "full_test@test.com",
             "password": "test123",
-            "name": "Persistence Test"
+            "name": "Full Tester"
         }
         
-        status, data = await self.make_request("POST", "/auth/register", register_payload)
+        status, response = await self.make_request("POST", "/auth/register", register_data, auth_required=False)
+        
         if status == 200:
-            self.auth_token = data.get("token")
-            self.parent_data = data
-            self.log_test("User Registration", "PASS", f"Registered user: {data.get('name')}", data)
+            self.auth_token = response.get("token")
+            self.log_test("Register test user", True, f"Token: {self.auth_token[:20]}...")
         else:
-            # Try login instead (user might already exist)
-            login_payload = {"email": "persistence_test@test.com", "password": "test123"}
-            status, data = await self.make_request("POST", "/auth/login", login_payload)
+            # Try login in case user already exists
+            login_data = {"email": "full_test@test.com", "password": "test123"}
+            status, response = await self.make_request("POST", "/auth/login", login_data, auth_required=False)
             if status == 200:
-                self.auth_token = data.get("token")
-                self.parent_data = data
-                self.log_test("User Login", "PASS", f"Logged in existing user: {data.get('name')}", data)
+                self.auth_token = response.get("token")
+                self.log_test("Login existing test user", True, f"Token: {self.auth_token[:20]}...")
             else:
-                self.log_test("User Auth", "FAIL", f"Registration/Login failed: HTTP {status}", data)
-                return
+                self.log_test("Register/Login test user", False, f"Status: {status}", response)
+                return False
+                
+        # Step 2: Create Alice (7-9 age tier)
+        alice_data = {"name": "Alice", "age_tier": "7-9"}
+        status, response = await self.make_request("POST", "/children", alice_data)
         
-        # Test 8: Create a child
-        child_payload = {
-            "name": "PersistKid",
-            "age_tier": "7-9"
+        if status == 200:
+            self.alice_child_id = response.get("child_id")
+            self.log_test("Create Alice child", True, f"Child ID: {self.alice_child_id}")
+        else:
+            self.log_test("Create Alice child", False, f"Status: {status}", response)
+            return False
+            
+        # Step 3: Create Bob (10-12 age tier)  
+        bob_data = {"name": "Bob", "age_tier": "10-12"}
+        status, response = await self.make_request("POST", "/children", bob_data)
+        
+        if status == 200:
+            self.bob_child_id = response.get("child_id")
+            self.log_test("Create Bob child", True, f"Child ID: {self.bob_child_id}")
+            return True
+        else:
+            self.log_test("Create Bob child", False, f"Status: {status}", response)
+            return False
+            
+    async def test_feature_1_challenge_stats(self):
+        """Feature 1: Challenge Stats in Parent Dashboard"""
+        print("\n🎯 FEATURE 1: Challenge Stats in Parent Dashboard")
+        
+        # Step 4: Submit a challenge for Alice
+        # First get a verse challenge
+        status, challenge_response = await self.make_request("GET", "/verse-challenge?age_tier=7-9&difficulty=easy", auth_required=False)
+        
+        if status != 200:
+            self.log_test("Get verse challenge for Alice", False, f"Status: {status}", challenge_response)
+            return False
+            
+        self.log_test("Get verse challenge for Alice", True, f"Reference: {challenge_response.get('reference')}")
+        
+        # Determine correct answers by comparing display_text with full_verse
+        display_text = challenge_response.get("display_text", "")
+        full_verse = challenge_response.get("full_verse", "")
+        blank_count = challenge_response.get("blank_count", 0)
+        
+        # Extract answers from blanks (simple approach - find words that were replaced with ____) 
+        display_words = display_text.split()
+        full_words = full_verse.split()
+        correct_answers = []
+        
+        for i, (display_word, full_word) in enumerate(zip(display_words, full_words)):
+            if "____" in display_word:
+                # Extract the clean word (removing punctuation)
+                clean_word = full_word.strip(".,;:!?'\"—").lower()
+                correct_answers.append(clean_word)
+                
+        if len(correct_answers) == 0:
+            # Fallback: just use some words from the verse
+            correct_answers = [w.strip(".,;:!?'\"—").lower() for w in full_words[:blank_count] if len(w.strip(".,;:!?'\"—")) >= 4]
+            
+        submission_data = {
+            "child_id": self.alice_child_id,
+            "answers": correct_answers,
+            "difficulty": "easy"
         }
         
-        status, data = await self.make_request("POST", "/children", child_payload)
-        if status == 200:
-            self.child_data = data
-            child_id = data.get("child_id")
-            self.log_test("Child Creation", "PASS", f"Created child: {data.get('name')}, ID: {child_id}", data)
-        else:
-            self.log_test("Child Creation", "FAIL", f"HTTP {status}", data)
-            return
+        # Step 5: Submit challenge answers
+        status, submit_response = await self.make_request("POST", "/verse-challenge/submit", submission_data, auth_required=False)
         
-        # Test 9: Send 3 chat messages in the same session
-        child_id = self.child_data.get("child_id")
-        messages = [
-            "Who made the world?",
-            "Tell me more about Adam", 
-            "Who was Eve?"
+        if status == 200:
+            score = submit_response.get("score", 0)
+            self.log_test("Submit challenge for Alice", True, f"Score: {score}%")
+        else:
+            self.log_test("Submit challenge for Alice", False, f"Status: {status}", submit_response)
+            
+        # Step 6: Get challenge stats for Alice
+        status, stats_response = await self.make_request("GET", f"/verse-challenge/stats/{self.alice_child_id}", auth_required=False)
+        
+        if status == 200:
+            total_played = stats_response.get("total_played", 0)
+            avg_score = stats_response.get("average_score", 0)
+            self.log_test("Get Alice challenge stats", True, f"Total played: {total_played}, Avg score: {avg_score}")
+        else:
+            self.log_test("Get Alice challenge stats", False, f"Status: {status}", stats_response)
+            
+        # Step 7: Get dashboard stats for Alice
+        status, dashboard_response = await self.make_request("GET", f"/dashboard/stats/{self.alice_child_id}")
+        
+        if status == 200:
+            conversations = dashboard_response.get("total_conversations", 0)
+            messages = dashboard_response.get("total_messages", 0)
+            self.log_test("Get Alice dashboard stats", True, f"Conversations: {conversations}, Messages: {messages}")
+            return True
+        else:
+            self.log_test("Get Alice dashboard stats", False, f"Status: {status}", dashboard_response)
+            return False
+            
+    async def test_feature_2_coppa_consent(self):
+        """Feature 2: COPPA-Compliant Consent"""
+        print("\n🔒 FEATURE 2: COPPA-Compliant Consent")
+        
+        # Step 8: Get COPPA policy
+        status, policy_response = await self.make_request("GET", "/coppa-policy", auth_required=False)
+        
+        if status == 200:
+            required_fields = ["data_collected", "data_usage", "data_not_collected", "retention", "parent_rights"]
+            has_all_fields = all(field in policy_response for field in required_fields)
+            self.log_test("Get COPPA policy", has_all_fields, f"Has all required fields: {has_all_fields}")
+        else:
+            self.log_test("Get COPPA policy", False, f"Status: {status}", policy_response)
+            
+        # Step 9: Give consent for Alice (correct name)
+        alice_consent_data = {"child_name_confirmation": "Alice"}
+        status, consent_response = await self.make_request("POST", f"/children/{self.alice_child_id}/consent", alice_consent_data)
+        
+        if status == 200:
+            self.log_test("Give consent for Alice (correct name)", True, "Consent recorded")
+        else:
+            self.log_test("Give consent for Alice (correct name)", False, f"Status: {status}", consent_response)
+            
+        # Step 10: Try wrong name (should fail)
+        wrong_consent_data = {"child_name_confirmation": "WrongName"}
+        status, wrong_response = await self.make_request("POST", f"/children/{self.alice_child_id}/consent", wrong_consent_data)
+        
+        if status == 400:
+            self.log_test("Give consent with wrong name (should fail)", True, "Correctly rejected wrong name")
+        else:
+            self.log_test("Give consent with wrong name (should fail)", False, f"Status: {status} (expected 400)", wrong_response)
+            
+        # Step 11: Give consent for Bob (correct name)
+        bob_consent_data = {"child_name_confirmation": "Bob"}
+        status, bob_consent_response = await self.make_request("POST", f"/children/{self.bob_child_id}/consent", bob_consent_data)
+        
+        if status == 200:
+            self.log_test("Give consent for Bob (correct name)", True, "Consent recorded")
+        else:
+            self.log_test("Give consent for Bob (correct name)", False, f"Status: {status}", bob_consent_response)
+            
+        # Step 12: Verify consent recorded for Alice
+        status, alice_profile = await self.make_request("GET", f"/children/{self.alice_child_id}")
+        
+        if status == 200:
+            consent_given = alice_profile.get("parental_consent_given", False)
+            consent_timestamp = alice_profile.get("consent_timestamp")
+            consent_method = alice_profile.get("consent_method")
+            
+            if consent_given and consent_timestamp and consent_method:
+                self.log_test("Verify Alice consent recorded", True, f"Consent: {consent_given}, Method: {consent_method}")
+                return True
+            else:
+                self.log_test("Verify Alice consent recorded", False, f"Missing consent fields: {alice_profile}")
+        else:
+            self.log_test("Verify Alice consent recorded", False, f"Status: {status}", alice_profile)
+            
+        return False
+        
+    async def test_feature_3_refactored_routes(self):
+        """Feature 3: Refactored Routes (all still working)"""  
+        print("\n🔄 FEATURE 3: Refactored Routes (ensuring all still work)")
+        
+        routes_to_test = [
+            ("POST", "/auth/login", {"email": "full_test@test.com", "password": "test123"}, False),
+            ("GET", "/auth/me", None, True),
+            ("GET", "/knowledge-base", None, False),
+            ("GET", "/teachers", None, False),
+            ("GET", "/verse-of-the-day?age_tier=7-9", None, False),
+            ("GET", "/verse-challenge?age_tier=10-12", None, False),
+            ("GET", f"/dashboard/conversations/{self.alice_child_id}", None, True),
+            ("GET", "/voices", None, False),
         ]
         
-        session_id = None
-        for i, message in enumerate(messages, 1):
-            payload = {
-                "child_id": child_id,
-                "message": message,
-                "age_tier": "7-9"
-            }
-            
-            if session_id:
-                payload["session_id"] = session_id
-            
-            status, data = await self.make_request("POST", "/chat", payload)
-            if status == 200:
-                if not session_id:
-                    session_id = data.get("session_id")
-                response_text = data.get("response", "")
-                self.log_test(f"Chat Message {i}", "PASS", 
-                             f"Message sent, session: {session_id}, response length: {len(response_text)}", 
-                             {"message": message, "response_snippet": response_text[:50] + "..." if len(response_text) > 50 else response_text})
-            else:
-                self.log_test(f"Chat Message {i}", "FAIL", f"HTTP {status}", data)
-                return
+        all_passed = True
         
-        # Store session_id for later tests
-        self.session_id = session_id
-        
-        # Test 10: Verify conversation history
-        status, data = await self.make_request("GET", f"/dashboard/conversations/{child_id}")
-        if status == 200:
-            conversations = data.get("conversations", [])
-            if conversations and len(conversations) >= 1:
-                conversation = conversations[0]
-                message_count = conversation.get("message_count", 0)
-                expected_messages = 6  # 3 user + 3 assistant
+        for method, endpoint, data, auth_required in routes_to_test:
+            status, response = await self.make_request(method, endpoint, data, auth_required)
+            
+            success = status == 200
+            if success:
+                # Additional checks for specific endpoints
+                if "knowledge-base" in endpoint:
+                    success = "questions" in response and "total" in response
+                elif "teachers" in endpoint:
+                    success = "teachers" in response and len(response.get("teachers", [])) > 0
+                elif "verse-of-the-day" in endpoint:
+                    success = "verse" in response and "reference" in response
+                elif "voices" in endpoint:
+                    success = "voices" in response and len(response.get("voices", [])) >= 10
+                elif "auth/me" in endpoint:
+                    success = "user_id" in response and "email" in response
+                    
+            self.log_test(f"Route: {method} {endpoint}", success, f"Status: {status}")
+            
+            if not success:
+                all_passed = False
                 
-                if message_count == expected_messages:
-                    self.log_test("Conversation History", "PASS", 
-                                 f"Found {len(conversations)} conversation(s) with {message_count} messages", data)
-                else:
-                    self.log_test("Conversation History", "PARTIAL", 
-                                 f"Found {message_count} messages, expected {expected_messages}", data)
-            else:
-                self.log_test("Conversation History", "FAIL", f"No conversations found", data)
+        # Test chat endpoint
+        chat_data = {
+            "child_id": self.alice_child_id,
+            "message": "Who is God?",
+            "age_tier": "7-9"
+        }
+        status, chat_response = await self.make_request("POST", "/chat", chat_data, auth_required=False)
+        
+        if status == 200 and "session_id" in chat_response and "response" in chat_response:
+            self.log_test("POST /chat endpoint", True, f"Status: {status}")
         else:
-            self.log_test("Conversation History", "FAIL", f"HTTP {status}", data)
-        
-        # Test 11: Verify conversation detail
-        if hasattr(self, 'session_id') and self.session_id:
-            status, data = await self.make_request("GET", f"/dashboard/conversation/{self.session_id}")
-            if status == 200:
-                messages = data.get("messages", [])
-                if len(messages) == 6:  # 3 user + 3 assistant
-                    has_timestamps = all("timestamp" in msg for msg in messages)
-                    self.log_test("Conversation Detail", "PASS", 
-                                 f"Retrieved {len(messages)} messages, all with timestamps: {has_timestamps}", 
-                                 {"message_count": len(messages), "has_timestamps": has_timestamps})
-                else:
-                    self.log_test("Conversation Detail", "PARTIAL", 
-                                 f"Retrieved {len(messages)} messages, expected 6", data)
-            else:
-                self.log_test("Conversation Detail", "FAIL", f"HTTP {status}", data)
-        
-        # Test 12: Verify dashboard stats
-        status, data = await self.make_request("GET", f"/dashboard/stats/{child_id}")
-        if status == 200:
-            total_conversations = data.get("total_conversations", 0)
-            total_messages = data.get("total_messages", 0)
+            self.log_test("POST /chat endpoint", False, f"Status: {status}", chat_response)
+            all_passed = False
             
-            if total_conversations >= 1 and total_messages >= 6:
-                self.log_test("Dashboard Stats", "PASS", 
-                             f"Stats: {total_conversations} conversations, {total_messages} messages", data)
-            else:
-                self.log_test("Dashboard Stats", "PARTIAL", 
-                             f"Stats: {total_conversations} conversations, {total_messages} messages (expected: >=1, >=6)", data)
+        return all_passed
+        
+    async def test_feature_4_family_leaderboard(self):
+        """Feature 4: Family Leaderboard"""
+        print("\n🏆 FEATURE 4: Family Leaderboard")
+        
+        # Step 21: Submit challenges for Bob too
+        # Get verse challenge for Bob's age tier
+        status, bob_challenge = await self.make_request("GET", "/verse-challenge?age_tier=10-12&difficulty=easy", auth_required=False)
+        
+        if status != 200:
+            self.log_test("Get verse challenge for Bob", False, f"Status: {status}", bob_challenge)
+            return False
+            
+        # Extract correct answers for Bob's challenge
+        display_text = bob_challenge.get("display_text", "")
+        full_verse = bob_challenge.get("full_verse", "")
+        blank_count = bob_challenge.get("blank_count", 0)
+        
+        display_words = display_text.split()
+        full_words = full_verse.split()
+        bob_answers = []
+        
+        for i, (display_word, full_word) in enumerate(zip(display_words, full_words)):
+            if "____" in display_word:
+                clean_word = full_word.strip(".,;:!?'\"—").lower()
+                bob_answers.append(clean_word)
+                
+        if len(bob_answers) == 0:
+            bob_answers = [w.strip(".,;:!?'\"—").lower() for w in full_words[:blank_count] if len(w.strip(".,;:!?'\"—")) >= 4]
+            
+        bob_submission = {
+            "child_id": self.bob_child_id,
+            "answers": bob_answers,
+            "difficulty": "easy"
+        }
+        
+        status, bob_submit_response = await self.make_request("POST", "/verse-challenge/submit", bob_submission, auth_required=False)
+        
+        if status == 200:
+            bob_score = bob_submit_response.get("score", 0)
+            self.log_test("Submit challenge for Bob", True, f"Score: {bob_score}%")
         else:
-            self.log_test("Dashboard Stats", "FAIL", f"HTTP {status}", data)
-
-    # ==================== TEST RUNNER ====================
-    
-    async def run_all_tests(self):
-        """Run all backend tests for new features"""
-        print("🎯 BIBLE BUDDY NEW FEATURES BACKEND TESTING")
-        print("=" * 60)
-        print(f"Backend URL: {BACKEND_URL}")
-        print(f"Test Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print()
+            self.log_test("Submit challenge for Bob", False, f"Status: {status}", bob_submit_response)
+            
+        # Step 22: Get family leaderboard
+        status, leaderboard_response = await self.make_request("GET", "/leaderboard")
         
-        # Feature 1: 365 Verse of the Day
-        print("📖 FEATURE 1: 365 VERSE OF THE DAY")
-        print("-" * 40)
-        await self.test_verse_of_the_day_age_tiers()
-        print()
+        if status == 200:
+            leaderboard = leaderboard_response.get("leaderboard", [])
+            family_stats = leaderboard_response.get("family_stats", {})
+            
+            # Validate leaderboard structure
+            has_valid_structure = True
+            required_leaderboard_fields = ["rank", "name", "age_tier", "challenge_stats", "chat_stats"]
+            required_family_fields = ["total_children", "total_challenges_completed", "family_average_score"]
+            
+            if len(leaderboard) >= 2:  # Should have Alice and Bob
+                for entry in leaderboard:
+                    if not all(field in entry for field in required_leaderboard_fields):
+                        has_valid_structure = False
+                        break
+                        
+                    # Check challenge_stats structure
+                    challenge_stats = entry.get("challenge_stats", {})
+                    if not all(field in challenge_stats for field in ["total_played", "average_score", "current_streak"]):
+                        has_valid_structure = False
+                        break
+                        
+                    # Check chat_stats structure  
+                    chat_stats = entry.get("chat_stats", {})
+                    if not all(field in chat_stats for field in ["total_conversations", "total_messages"]):
+                        has_valid_structure = False
+                        break
+                        
+                # Check family_stats structure
+                if not all(field in family_stats for field in required_family_fields):
+                    has_valid_structure = False
+                    
+                if has_valid_structure:
+                    total_children = family_stats.get("total_children", 0)
+                    total_challenges = family_stats.get("total_challenges_completed", 0)
+                    self.log_test("Get family leaderboard", True, 
+                                f"Children: {total_children}, Total challenges: {total_challenges}, Entries: {len(leaderboard)}")
+                    return True
+                else:
+                    self.log_test("Get family leaderboard", False, "Invalid leaderboard structure", leaderboard_response)
+            else:
+                self.log_test("Get family leaderboard", False, f"Expected 2+ children, got {len(leaderboard)}", leaderboard_response)
+        else:
+            self.log_test("Get family leaderboard", False, f"Status: {status}", leaderboard_response)
+            
+        return False
         
-        # Feature 2: KB Age Pre-warming
-        print("🧠 FEATURE 2: KB AGE PRE-WARMING")
-        print("-" * 40)
-        await self.test_kb_age_prewarming()
-        print()
+    async def test_feature_5_resend_domain_verification(self):
+        """Feature 5: Resend Domain Verification"""
+        print("\n📧 FEATURE 5: Resend Domain Verification")
         
-        # Feature 3: Persistent Conversation History
-        print("💾 FEATURE 3: PERSISTENT CONVERSATION HISTORY")
-        print("-" * 40)
-        await self.test_persistent_conversation_history()
-        print()
+        # Step 23: Get domain status
+        status, domain_response = await self.make_request("GET", "/email/domain-status")
         
-        # Summary
-        print("📊 TEST SUMMARY")
-        print("=" * 60)
+        if status == 200:
+            current_sender = domain_response.get("current_sender")
+            is_verified = domain_response.get("is_verified")
+            using_default = domain_response.get("using_default")
+            
+            required_fields = ["current_sender", "is_verified", "using_default"]
+            has_required = all(field in domain_response for field in required_fields)
+            
+            if has_required:
+                details = f"Sender: {current_sender}, Verified: {is_verified}, Using default: {using_default}"
+                
+                # If using default, should have setup instructions
+                if using_default:
+                    setup_instructions = domain_response.get("setup_instructions", {})
+                    required_dns_records = domain_response.get("setup_instructions", {}).get("required_dns_records", [])
+                    
+                    if setup_instructions and required_dns_records:
+                        self.log_test("Get domain status with setup instructions", True, 
+                                    f"{details}, Has setup instructions: {len(setup_instructions)} fields")
+                        return True
+                    else:
+                        self.log_test("Get domain status", False, "Missing setup instructions for default domain")
+                else:
+                    self.log_test("Get domain status (custom domain)", True, details)
+                    return True
+            else:
+                self.log_test("Get domain status", False, f"Missing required fields: {domain_response}")
+        else:
+            self.log_test("Get domain status", False, f"Status: {status}", domain_response)
+            
+        return False
         
-        passed = sum(1 for r in self.test_results if r["status"] == "PASS")
-        failed = sum(1 for r in self.test_results if r["status"] == "FAIL")
-        partial = sum(1 for r in self.test_results if r["status"] in ["PARTIAL", "INFO"])
+    def print_summary(self):
+        """Print test summary"""
+        passed = sum(1 for result in self.test_results if result["success"])
         total = len(self.test_results)
         
-        print(f"✅ PASSED: {passed}")
-        print(f"❌ FAILED: {failed}")
-        print(f"⚠️  PARTIAL/INFO: {partial}")
-        print(f"📈 TOTAL: {total}")
+        print("\n" + "="*60)
+        print(f"TEST SUMMARY: {passed}/{total} tests passed ({passed/total*100:.1f}%)")
+        print("="*60)
         
-        if failed > 0:
-            print("\n🚨 FAILED TESTS:")
-            for result in self.test_results:
-                if result["status"] == "FAIL":
-                    print(f"   - {result['test']}: {result['details']}")
+        # Group by feature
+        features = {
+            "Setup": [],
+            "Feature 1 - Challenge Stats": [],
+            "Feature 2 - COPPA Consent": [],
+            "Feature 3 - Refactored Routes": [],
+            "Feature 4 - Family Leaderboard": [],
+            "Feature 5 - Domain Verification": []
+        }
         
-        success_rate = (passed / total) * 100 if total > 0 else 0
-        print(f"\n🎯 SUCCESS RATE: {success_rate:.1f}%")
+        for result in self.test_results:
+            test_name = result["test"]
+            if any(x in test_name.lower() for x in ["register", "login", "create alice", "create bob"]):
+                features["Setup"].append(result)
+            elif any(x in test_name.lower() for x in ["challenge", "stats", "dashboard"]) and "family" not in test_name.lower():
+                features["Feature 1 - Challenge Stats"].append(result)
+            elif any(x in test_name.lower() for x in ["coppa", "consent"]):
+                features["Feature 2 - COPPA Consent"].append(result)
+            elif "route" in test_name.lower():
+                features["Feature 3 - Refactored Routes"].append(result)
+            elif any(x in test_name.lower() for x in ["leaderboard", "family"]):
+                features["Feature 4 - Family Leaderboard"].append(result)
+            elif any(x in test_name.lower() for x in ["domain", "email"]):
+                features["Feature 5 - Domain Verification"].append(result)
+                
+        for feature, results in features.items():
+            if results:
+                feature_passed = sum(1 for r in results if r["success"])
+                feature_total = len(results)
+                status_emoji = "✅" if feature_passed == feature_total else "⚠️" if feature_passed > 0 else "❌"
+                print(f"\n{status_emoji} {feature}: {feature_passed}/{feature_total}")
+                
+        print(f"\nOverall Status: {'✅ ALL FEATURES WORKING' if passed == total else '⚠️ SOME ISSUES FOUND' if passed > total*0.8 else '❌ MAJOR ISSUES'}")
         
-        return self.test_results
+        return passed == total
 
 
 async def main():
-    """Main test runner"""
+    """Run comprehensive backend testing"""
+    print("🎯 Bible Buddy - Comprehensive Backend Testing")
+    print("Testing 5 New Features against Production API")
+    print(f"Base URL: {BASE_URL}")
+    print("="*60)
+    
     async with BibleBuddyTester() as tester:
-        results = await tester.run_all_tests()
+        # Setup phase
+        if not await tester.setup_test_user():
+            print("❌ Setup failed - cannot continue with feature testing")
+            return False
+            
+        # Test each feature
+        feature_1_ok = await tester.test_feature_1_challenge_stats()
+        feature_2_ok = await tester.test_feature_2_coppa_consent()
+        feature_3_ok = await tester.test_feature_3_refactored_routes()
+        feature_4_ok = await tester.test_feature_4_family_leaderboard()
+        feature_5_ok = await tester.test_feature_5_resend_domain_verification()
         
-        # Save detailed results
-        with open("/app/test_results_new_features.json", "w") as f:
-            json.dump(results, f, indent=2, default=str)
+        # Print results
+        success = tester.print_summary()
         
-        print(f"\n📝 Detailed results saved to: /app/test_results_new_features.json")
-
+        return success
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    success = asyncio.run(main())
+    sys.exit(0 if success else 1)

@@ -47,6 +47,7 @@ export default function ParentDashboardScreen() {
   const [showChildPicker, setShowChildPicker] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [savingVoice, setSavingVoice] = useState(false);
+  const [challengeStats, setChallengeStats] = useState<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [notifSettings, setNotifSettings] = useState({
     notify_on_session_start: true,
@@ -76,10 +77,11 @@ export default function ParentDashboardScreen() {
   const loadChildData = async (childId: string) => {
     setIsLoading(true);
     try {
-      const [statsRes, convsRes, settingsRes] = await Promise.all([
+      const [statsRes, convsRes, settingsRes, challengeRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/dashboard/stats/${childId}`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/dashboard/conversations/${childId}`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/notifications/settings`, { headers: authHeaders() }),
+        fetch(`${BACKEND_URL}/api/verse-challenge/stats/${childId}`),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (convsRes.ok) {
@@ -94,6 +96,7 @@ export default function ParentDashboardScreen() {
           email_weekly_summary: s.email_weekly_summary ?? true,
         });
       }
+      if (challengeRes.ok) setChallengeStats(await challengeRes.json());
     } catch (e) {
       console.error('Dashboard load error:', e);
     } finally {
@@ -333,6 +336,63 @@ export default function ParentDashboardScreen() {
                 </View>
               </View>
 
+              {/* Memory Challenge Stats */}
+              {challengeStats && challengeStats.total_played > 0 && (
+                <TouchableOpacity
+                  style={styles.challengeCard}
+                  onPress={() => router.push('/verse-challenge')}
+                  activeOpacity={0.8}
+                  data-testid="challenge-stats-card"
+                >
+                  <View style={styles.challengeHeader}>
+                    <Ionicons name="trophy" size={22} color="#6C5CE7" />
+                    <Text style={styles.challengeTitle}>Memory Challenge</Text>
+                    <Ionicons name="chevron-forward" size={18} color="#AAA" />
+                  </View>
+                  <View style={styles.challengeStatsRow}>
+                    <View style={styles.challengeStat}>
+                      <Ionicons name="flame" size={20} color="#FF6B6B" />
+                      <Text style={styles.challengeStatValue}>{challengeStats.current_streak}</Text>
+                      <Text style={styles.challengeStatLabel}>Streak</Text>
+                    </View>
+                    <View style={styles.challengeStatDivider} />
+                    <View style={styles.challengeStat}>
+                      <Ionicons name="star" size={20} color="#FFD93D" />
+                      <Text style={styles.challengeStatValue}>{challengeStats.average_score}%</Text>
+                      <Text style={styles.challengeStatLabel}>Average</Text>
+                    </View>
+                    <View style={styles.challengeStatDivider} />
+                    <View style={styles.challengeStat}>
+                      <Ionicons name="ribbon" size={20} color="#4ECDC4" />
+                      <Text style={styles.challengeStatValue}>{challengeStats.perfect_scores}</Text>
+                      <Text style={styles.challengeStatLabel}>Perfect</Text>
+                    </View>
+                    <View style={styles.challengeStatDivider} />
+                    <View style={styles.challengeStat}>
+                      <Ionicons name="calendar" size={20} color="#6C5CE7" />
+                      <Text style={styles.challengeStatValue}>{challengeStats.total_played}</Text>
+                      <Text style={styles.challengeStatLabel}>Played</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Family Leaderboard Link */}
+              {childProfiles.length > 1 && (
+                <TouchableOpacity
+                  style={styles.leaderboardLink}
+                  onPress={() => router.push('/leaderboard')}
+                  activeOpacity={0.8}
+                  data-testid="leaderboard-link"
+                >
+                  <LinearGradient colors={['#FF6B6B', '#FF8E53']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.leaderboardGradient}>
+                    <Ionicons name="trophy" size={22} color="#fff" />
+                    <Text style={styles.leaderboardLinkText}>Family Leaderboard</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#fff" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+
               {/* Topics Section */}
               {stats?.most_asked_topics && stats.most_asked_topics.length > 0 && (
                 <View style={styles.topicsCard} data-testid="topics-card">
@@ -566,6 +626,19 @@ const styles = StyleSheet.create({
   sendEmailBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16, paddingVertical: 12, backgroundColor: '#F8F9FF', borderRadius: 14, borderWidth: 1.5, borderColor: '#6C5CE7', gap: 8 },
   sendEmailText: { fontSize: 14, fontWeight: '600', color: '#6C5CE7' },
   voiceSettingsHeader: { flexDirection: 'row', alignItems: 'center' },
+  // Challenge stats
+  challengeCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20, shadowColor: '#6C5CE7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
+  challengeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
+  challengeTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#2D3436' },
+  challengeStatsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  challengeStat: { alignItems: 'center', gap: 4 },
+  challengeStatValue: { fontSize: 22, fontWeight: '800', color: '#2D3436' },
+  challengeStatLabel: { fontSize: 11, color: '#636E72', fontWeight: '600' },
+  challengeStatDivider: { width: 1, height: 40, backgroundColor: '#F0F0F0' },
+  // Leaderboard link
+  leaderboardLink: { borderRadius: 16, overflow: 'hidden', marginBottom: 20 },
+  leaderboardGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 10 },
+  leaderboardLinkText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   // Conversation detail
   conversationDetail: { flex: 1, padding: 20 },
   conversationDateHeader: { fontSize: 14, fontWeight: '600', color: '#AAA', textAlign: 'center', marginBottom: 20 },

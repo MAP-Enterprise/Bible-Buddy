@@ -34,6 +34,7 @@ export default function OnboardingScreen() {
   const [childName, setChildName] = useState('');
   const [selectedAgeTier, setSelectedAgeTier] = useState('');
   const [consentGiven, setConsentGiven] = useState(false);
+  const [consentNameInput, setConsentNameInput] = useState('');
   const [selectedVoice, setSelectedVoice] = useState('EXAVITQu4vr4xnSDxMaL');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -75,7 +76,11 @@ export default function OnboardingScreen() {
       setStep(4);
     } else if (step === 4) {
       if (!consentGiven) {
-        showAlert('Consent Required', 'Please provide parental consent to continue');
+        showAlert('Consent Required', 'Please check the consent box to continue');
+        return;
+      }
+      if (consentNameInput.trim().toLowerCase() !== childName.trim().toLowerCase()) {
+        showAlert('Verification Failed', "Please type your child's name exactly to verify your consent");
         return;
       }
       await createChildProfile();
@@ -185,34 +190,76 @@ export default function OnboardingScreen() {
         <View style={[styles.emojiCircle, { backgroundColor: '#E0F7F5' }]}>
           <Text style={styles.headerEmoji}>{'\ud83d\udee1\ufe0f'}</Text>
         </View>
-        <Text style={styles.stepTitle}>Safety First!</Text>
-        <Text style={styles.stepSubtitle}>We keep your child protected</Text>
+        <Text style={styles.stepTitle}>Parental Consent</Text>
+        <Text style={styles.stepSubtitle}>COPPA-compliant privacy protection</Text>
       </View>
       
+      {/* Data Disclosure */}
       <View style={styles.safetyCard}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: '#2D3436', marginBottom: 12 }}>What we collect:</Text>
         {[
-          { icon: 'shield-checkmark', color: '#4ECDC4', text: 'Age-appropriate content only' },
-          { icon: 'eye-off', color: '#6C5CE7', text: 'No personal data collection' },
-          { icon: 'lock-closed', color: '#FF6B6B', text: 'Safety filters always on' },
-          { icon: 'people', color: '#FFD93D', text: 'Parent dashboard access' },
+          { icon: 'person', color: '#6C5CE7', text: "Child's first name and age group" },
+          { icon: 'chatbubble', color: '#4ECDC4', text: 'Bible-related questions asked' },
+          { icon: 'mic', color: '#FF6B6B', text: 'Voice input (processed in real-time, not stored)' },
         ].map((item, i) => (
           <View key={i} style={styles.safetyItem}>
             <View style={[styles.safetyIconCircle, { backgroundColor: `${item.color}20` }]}>
-              <Ionicons name={item.icon as any} size={22} color={item.color} />
+              <Ionicons name={item.icon as any} size={20} color={item.color} />
             </View>
             <Text style={styles.safetyText}>{item.text}</Text>
           </View>
         ))}
+        
+        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#2D3436', marginBottom: 12 }}>We do NOT collect:</Text>
+          {['Last name or full identity', 'Location, photos, or contact info', 'Any data from external sources'].map((text, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+              <Ionicons name="close-circle" size={18} color="#FF6B6B" />
+              <Text style={{ fontSize: 14, color: '#636E72' }}>{text}</Text>
+            </View>
+          ))}
+        </View>
+        
+        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#2D3436', marginBottom: 8 }}>Your rights:</Text>
+          {['View all conversations in Parent Dashboard', 'Delete child profile and data anytime', 'Revoke consent and deactivate access'].map((text, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+              <Ionicons name="checkmark-circle" size={18} color="#4ECDC4" />
+              <Text style={{ fontSize: 14, color: '#636E72' }}>{text}</Text>
+            </View>
+          ))}
+        </View>
       </View>
       
+      {/* Consent Checkbox */}
       <TouchableOpacity style={styles.consentBox} onPress={() => setConsentGiven(!consentGiven)} activeOpacity={0.8} data-testid="consent-checkbox">
         <View style={[styles.checkbox, consentGiven && styles.checkboxChecked]}>
           {consentGiven && <Ionicons name="checkmark" size={18} color="#fff" />}
         </View>
         <Text style={styles.consentText}>
-          I am {childName}'s parent/guardian and I consent to their use of Bible Buddy
+          I am {childName}'s parent/guardian and I consent to Bible Buddy collecting the data described above for the purpose of providing age-appropriate Bible education.
         </Text>
       </TouchableOpacity>
+
+      {/* Name Verification */}
+      {consentGiven && (
+        <View style={{ marginTop: 16 }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#2D3436', marginBottom: 8 }}>
+            To verify, please type your child's name:
+          </Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="shield-checkmark" size={22} color="#4ECDC4" style={styles.inputIcon} />
+            <TextInput
+              style={styles.textInput}
+              value={consentNameInput}
+              onChangeText={setConsentNameInput}
+              placeholder={`Type "${childName}" to confirm`}
+              placeholderTextColor="#AAA"
+              data-testid="consent-name-input"
+            />
+          </View>
+        </View>
+      )}
     </Animated.View>
   );
 
