@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
 import { storage } from '../helpers/storage';
+import { useAuthContext } from '../contexts/AuthContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 const { width } = Dimensions.get('window');
@@ -42,6 +43,7 @@ interface Message {
 }
 
 export default function ChatScreen() {
+  const { activeChild } = useAuthContext();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   // Fun typing messages that rotate
@@ -62,8 +64,8 @@ export default function ChatScreen() {
     return () => clearInterval(interval);
   }, [isLoading]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [ageTier, setAgeTier] = useState('7-9');
-  const [childId, setChildId] = useState('guest_child');
+  const [ageTier, setAgeTier] = useState(activeChild?.age_tier || '7-9');
+  const [childId, setChildId] = useState(activeChild?.child_id || 'guest_child');
   const [showSettings, setShowSettings] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);

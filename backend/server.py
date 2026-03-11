@@ -1128,12 +1128,17 @@ async def get_current_user_endpoint(request: Request):
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return user
+    safe_user = {k: v for k, v in user.items() if k != "password_hash"}
+    return safe_user
 
 @api_router.post("/auth/logout")
 async def logout(request: Request, response: Response):
     """Logout user"""
     session_token = request.cookies.get("session_token")
+    if not session_token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            session_token = auth_header.split(" ")[1]
     if session_token:
         await db.user_sessions.delete_one({"session_token": session_token})
     response.delete_cookie("session_token", path="/")

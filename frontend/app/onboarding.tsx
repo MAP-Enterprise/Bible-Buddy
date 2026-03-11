@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   StatusBar,
   Platform,
 } from 'react-native';
@@ -17,18 +16,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { storage } from '../helpers/storage';
-
-// Removed Dimensions.get usage for web compatibility
+import { useAuthContext } from '../contexts/AuthContext';
 
 const AGE_TIERS = [
-  { value: '4-6', label: '4-6 years', emoji: '🧒', desc: 'Preschool', color: '#FF6B6B', bg: '#FFE8E8' },
-  { value: '7-9', label: '7-9 years', emoji: '👧', desc: 'Early Elementary', color: '#4ECDC4', bg: '#E0F7F5' },
-  { value: '10-12', label: '10-12 years', emoji: '🧑', desc: 'Upper Elementary', color: '#FFD93D', bg: '#FFF8E0' },
-  { value: '13-18', label: '13-18 years', emoji: '🎓', desc: 'Teen', color: '#6C5CE7', bg: '#EDE9FE' },
+  { value: '4-6', label: '4-6 years', emoji: '\ud83e\uddd2', desc: 'Preschool', color: '#FF6B6B', bg: '#FFE8E8' },
+  { value: '7-9', label: '7-9 years', emoji: '\ud83d\udc67', desc: 'Early Elementary', color: '#4ECDC4', bg: '#E0F7F5' },
+  { value: '10-12', label: '10-12 years', emoji: '\ud83e\uddd1', desc: 'Upper Elementary', color: '#FFD93D', bg: '#FFF8E0' },
+  { value: '13-18', label: '13-18 years', emoji: '\ud83c\udf93', desc: 'Teen', color: '#6C5CE7', bg: '#EDE9FE' },
 ];
 
 export default function OnboardingScreen() {
+  const { isAuthenticated, addChild } = useAuthContext();
   const [step, setStep] = useState(1);
   const [childName, setChildName] = useState('');
   const [selectedAgeTier, setSelectedAgeTier] = useState('');
@@ -45,25 +43,33 @@ export default function OnboardingScreen() {
     ]).start();
   }, [step]);
 
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}: ${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleContinue = async () => {
     fadeAnim.setValue(0);
     slideAnim.setValue(30);
     
     if (step === 1) {
       if (!childName.trim()) {
-        Alert.alert('Oops!', "Please enter your child's name 😊");
+        showAlert('Oops!', "Please enter your child's name");
         return;
       }
       setStep(2);
     } else if (step === 2) {
       if (!selectedAgeTier) {
-        Alert.alert('One more thing!', 'Please select an age group 🎂');
+        showAlert('One more thing!', 'Please select an age group');
         return;
       }
       setStep(3);
     } else if (step === 3) {
       if (!consentGiven) {
-        Alert.alert('Consent Required', 'Please provide parental consent to continue ✅');
+        showAlert('Consent Required', 'Please provide parental consent to continue');
         return;
       }
       await createChildProfile();
@@ -73,35 +79,30 @@ export default function OnboardingScreen() {
   const createChildProfile = async () => {
     setIsLoading(true);
     try {
-      const childId = `child_${Date.now()}`;
-      const childData = {
-        child_id: childId,
-        name: childName,
-        age_tier: selectedAgeTier,
-        parental_consent_given: true,
-      };
-      
-      await storage.setItem('currentChild', JSON.stringify(childData));
-      await storage.setItem('childId', childId);
-      await storage.setItem('ageTier', selectedAgeTier);
-      
-      router.replace('/chat');
-    } catch (error) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      if (isAuthenticated) {
+        // Create child via API
+        const result = await addChild(childName.trim(), selectedAgeTier);
+        if (!result.success) {
+          showAlert('Error', result.error || 'Failed to create profile');
+          setIsLoading(false);
+          return;
+        }
+      }
+      router.replace('/');
+    } catch {
+      showAlert('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const selectedTier = AGE_TIERS.find(t => t.value === selectedAgeTier);
-
   const renderStep1 = () => (
     <Animated.View style={[styles.stepContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.stepHeader}>
         <View style={styles.emojiCircle}>
-          <Text style={styles.headerEmoji}>👋</Text>
+          <Text style={styles.headerEmoji}>{'\ud83d\udc4b'}</Text>
         </View>
-        <Text style={styles.stepTitle}>Welcome to Bible Buddy!</Text>
+        <Text style={styles.stepTitle}>Add a Child Profile</Text>
         <Text style={styles.stepSubtitle}>Let's get to know your child</Text>
       </View>
       
@@ -116,6 +117,7 @@ export default function OnboardingScreen() {
             placeholder="Enter name here..."
             placeholderTextColor="#AAA"
             autoFocus
+            data-testid="child-name-input"
           />
         </View>
       </View>
@@ -126,9 +128,9 @@ export default function OnboardingScreen() {
     <Animated.View style={[styles.stepContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.stepHeader}>
         <View style={[styles.emojiCircle, { backgroundColor: '#FFF8E0' }]}>
-          <Text style={styles.headerEmoji}>🎂</Text>
+          <Text style={styles.headerEmoji}>{'\ud83c\udf82'}</Text>
         </View>
-        <Text style={styles.stepTitle}>Hi, {childName}! 👋</Text>
+        <Text style={styles.stepTitle}>Hi, {childName}!</Text>
         <Text style={styles.stepSubtitle}>What age group fits best?</Text>
       </View>
       
@@ -162,7 +164,7 @@ export default function OnboardingScreen() {
     <Animated.View style={[styles.stepContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.stepHeader}>
         <View style={[styles.emojiCircle, { backgroundColor: '#E0F7F5' }]}>
-          <Text style={styles.headerEmoji}>🛡️</Text>
+          <Text style={styles.headerEmoji}>{'\ud83d\udee1\ufe0f'}</Text>
         </View>
         <Text style={styles.stepTitle}>Safety First!</Text>
         <Text style={styles.stepSubtitle}>We keep your child protected</Text>
@@ -184,7 +186,7 @@ export default function OnboardingScreen() {
         ))}
       </View>
       
-      <TouchableOpacity style={styles.consentBox} onPress={() => setConsentGiven(!consentGiven)} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.consentBox} onPress={() => setConsentGiven(!consentGiven)} activeOpacity={0.8} data-testid="consent-checkbox">
         <View style={[styles.checkbox, consentGiven && styles.checkboxChecked]}>
           {consentGiven && <Ionicons name="checkmark" size={18} color="#fff" />}
         </View>
@@ -199,10 +201,9 @@ export default function OnboardingScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
       <LinearGradient colors={['#667eea', '#764ba2']} style={styles.header}>
         <SafeAreaView edges={['top']} style={styles.headerContent}>
-          <TouchableOpacity onPress={() => step > 1 ? setStep(step - 1) : router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => step > 1 ? setStep(step - 1) : router.back()} style={styles.backButton} data-testid="onboarding-back-btn">
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.progressContainer}>
@@ -214,16 +215,14 @@ export default function OnboardingScreen() {
         </SafeAreaView>
       </LinearGradient>
 
-      {/* Content */}
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {step === 1 && renderStep1()}
         {step === 2 && renderStep2()}
         {step === 3 && renderStep3()}
       </ScrollView>
 
-      {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue} disabled={isLoading} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.continueButton} onPress={handleContinue} disabled={isLoading} activeOpacity={0.9} data-testid="onboarding-continue-btn">
           <LinearGradient
             colors={step === 3 ? ['#4ECDC4', '#44A08D'] : ['#FF6B6B', '#FF8E53']}
             start={{ x: 0, y: 0 }}
@@ -235,7 +234,7 @@ export default function OnboardingScreen() {
             ) : (
               <>
                 <Text style={styles.continueText}>
-                  {step === 3 ? "🎉 Let's Start!" : 'Continue'}
+                  {step === 3 ? "Let's Start!" : 'Continue'}
                 </Text>
                 <Ionicons name="arrow-forward-circle" size={26} color="#fff" />
               </>
