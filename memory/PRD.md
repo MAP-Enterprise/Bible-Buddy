@@ -19,7 +19,7 @@ An interactive mobile application for children to ask questions about the Bible 
 - **Backend:** FastAPI, MongoDB, GPT-4o-mini (via Emergent LLM Key)
 - **Frontend:** Expo (React Native), TypeScript, expo-router
 - **Integrations:** OpenAI, ElevenLabs, Deepgram, Resend (email), Expo Push Notifications
-- **Collections:** parents, children, chat_sessions, user_profiles, notification_settings, knowledge_base, teachers, safety_logs, daily_verses, kb_age_cache
+- **Collections:** parents, children, chat_sessions, user_profiles, notification_settings, knowledge_base, teachers, safety_logs, daily_verses, kb_age_cache, verse_challenges
 
 ## Completed Features
 - [x] Phase 1: Core AI conversation engine, safety filtering, knowledge base
@@ -37,32 +37,47 @@ An interactive mobile application for children to ask questions about the Bible 
 - [x] Notification Settings Dashboard (3 configurable toggles + test email button)
 - [x] AI Theological Realignment (Scripture-rooted answers, not generic)
 - [x] Voice Selection (10 voices: 5F/5M, American/British/African accents, onboarding + dashboard)
-- [x] **365 Verse of the Day** — Unique verse every day, themed by month (love, faith, courage, hope, wisdom, prayer, joy, identity, creation, Jesus, gratitude, promises) — Mar 2026
-- [x] **KB Age Pre-warming** — All 224 age-adapted answers (56 questions × 4 tiers) pre-generated at startup, 100% cached — Mar 2026
-- [x] **Persistent Conversation History** — All chat messages saved to DB, viewable in parent dashboard with session detail — Mar 2026
+- [x] 365 Verse of the Day — Unique verse every day, themed by month (love, faith, courage, hope, wisdom, prayer, joy, identity, creation, Jesus, gratitude, promises) — Mar 2026
+- [x] KB Age Pre-warming — All 224 age-adapted answers (56 questions x 4 tiers) pre-generated at startup — Mar 2026
+- [x] Persistent Conversation History — All chat messages saved to DB, viewable in parent dashboard — Mar 2026
+- [x] **Verse Memory Challenge** — Fill-in-the-blank game based on daily verse. 3 difficulty levels (easy/medium/hard), auto-selected by age tier. Score tracking, daily streaks, stats. Accessible from home screen. — Mar 2026
 
 ## Current State (Mar 2026)
-Fully functional app with authentication, multi-child support, parent dashboard, notifications, voice selection, 365 daily verses, instant KB responses for all age tiers, and persistent conversation history.
+Fully functional app with authentication, multi-child support, parent dashboard, notifications, voice selection, 365 daily verses, instant KB responses, persistent conversations, and verse memory challenge game.
 
 ## Key Files
-- `/app/backend/server.py` - Main backend orchestrator
+- `/app/backend/server.py` - Main backend orchestrator (includes verse challenge endpoints)
 - `/app/backend/bible_verses.py` - 365 verses organized by monthly themes
 - `/app/backend/routes/notifications.py` - Push notification routes
 - `/app/backend/routes/emails.py` - Weekly email summary routes
-- `/app/frontend/hooks/useAuth.ts` - Auth hook + updateChildVoice
+- `/app/frontend/app/verse-challenge.tsx` - Memory challenge game screen
+- `/app/frontend/app/index.tsx` - Home screen with verse of the day + challenge button
+- `/app/frontend/app/onboarding.tsx` - 4-step onboarding (name, age, voice, consent)
+- `/app/frontend/app/parent-dashboard.tsx` - Dashboard with voice/notification settings, stats, conversations
+- `/app/frontend/app/chat.tsx` - Chat interface
+- `/app/frontend/hooks/useAuth.ts` - Auth hook
 - `/app/frontend/contexts/AuthContext.tsx` - Auth context provider
 - `/app/frontend/components/VoicePicker.tsx` - Voice selection UI
-- `/app/frontend/app/onboarding.tsx` - 4-step onboarding (name → age → voice → consent)
-- `/app/frontend/app/parent-dashboard.tsx` - Dashboard with voice/notification settings, stats, conversations
-- `/app/frontend/app/index.tsx` - Home screen with verse of the day
-- `/app/frontend/app/chat.tsx` - Chat interface
+
+## API Endpoints
+- `GET /api/verse-challenge` - Get today's fill-in-the-blank challenge
+- `POST /api/verse-challenge/submit` - Submit answers, get score + streak
+- `GET /api/verse-challenge/stats/{child_id}` - Get challenge statistics
+- `GET /api/verse-of-the-day` - Get daily verse with explanation
+- `POST /api/chat` - Send message, get AI response
+- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`
+- `POST /api/children`, `PUT /api/children/{id}`, `PATCH /api/children/{id}/voice`
+- `GET /api/dashboard/conversations/{child_id}`, `GET /api/dashboard/conversation/{session_id}`
+- `GET /api/dashboard/stats/{child_id}`
 
 ## P1 (Next Priority)
 - COPPA-compliant parental consent flow
 - Refactor server.py into modular FastAPI routers
 - Verify a custom domain in Resend for production emails
+- Add challenge stats to parent dashboard
 
 ## P2 (Future)
 - True streaming responses (SSE word-by-word)
 - Full QA on iOS/Android native
 - Production deployment
+- Leaderboards / family challenge sharing
