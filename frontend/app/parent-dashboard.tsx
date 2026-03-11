@@ -45,6 +45,13 @@ export default function ParentDashboardScreen() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showChildPicker, setShowChildPicker] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [notifSettings, setNotifSettings] = useState({
+    notify_on_session_start: true,
+    notify_on_every_message: false,
+    email_weekly_summary: true,
+  });
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
@@ -66,14 +73,23 @@ export default function ParentDashboardScreen() {
   const loadChildData = async (childId: string) => {
     setIsLoading(true);
     try {
-      const [statsRes, convsRes] = await Promise.all([
+      const [statsRes, convsRes, settingsRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/dashboard/stats/${childId}`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/dashboard/conversations/${childId}`, { headers: authHeaders() }),
+        fetch(`${BACKEND_URL}/api/notifications/settings`, { headers: authHeaders() }),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (convsRes.ok) {
         const data = await convsRes.json();
         setConversations(data.conversations || []);
+      }
+      if (settingsRes.ok) {
+        const s = await settingsRes.json();
+        setNotifSettings({
+          notify_on_session_start: s.notify_on_session_start ?? true,
+          notify_on_every_message: s.notify_on_every_message ?? false,
+          email_weekly_summary: s.email_weekly_summary ?? true,
+        });
       }
     } catch (e) {
       console.error('Dashboard load error:', e);
@@ -97,6 +113,39 @@ export default function ParentDashboardScreen() {
   const handleSwitchChild = async (child: Child) => {
     setShowChildPicker(false);
     await setActiveChild(child);
+  };
+
+  const toggleNotifSetting = async (key: string, value: boolean) => {
+    const newSettings = { ...notifSettings, [key]: value };
+    setNotifSettings(newSettings);
+    try {
+      await fetch(`${BACKEND_URL}/api/notifications/settings`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ [key]: value }),
+      });
+    } catch (e) {
+      console.error('Settings update error:', e);
+      setNotifSettings(notifSettings); // revert on error
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/email/send-weekly-summary`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        setEmailSent(true);
+        setTimeout(() => setEmailSent(false), 4000);
+      }
+    } catch (e) {
+      console.error('Send email error:', e);
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   // Not authenticated
@@ -288,6 +337,50 @@ export default function ParentDashboardScreen() {
                 </View>
               )}
 
+              {/* Notification & Email Settings */}
+              <View style={styles.settingsCard} data-testid="notification-settings">
+                <Text style={styles.sectionTitle}>Notification Settings</Text>
+                
+                {[
+                  { key: 'notify_on_session_start', icon: 'notifications', color: '#FF6B6B', label: 'Alert when child starts a session', desc: 'Get notified when your child begins chatting' },
+                  { key: 'notify_on_every_message', icon: 'chatbubble-ellipses', color: '#4ECDC4', label: 'Alert on every message', desc: 'Get notified for each message sent' },
+                  { key: 'email_weekly_summary', icon: 'mail', color: '#6C5CE7', label: 'Weekly email summary', desc: 'Receive a summary every Sunday evening' },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={styles.settingRow}
+                    onPress={() => toggleNotifSetting(item.key, !(notifSettings as any)[item.key])}
+                    activeOpacity={0.7}
+                    data-testid={`toggle-${item.key}`}
+                  >
+                    <View style={[styles.settingIcon, { backgroundColor: `${item.color}18` }]}>
+                      <Ionicons name={item.icon as any} size={20} color={item.color} />
+                    </View>
+                    <View style={styles.settingInfo}>
+                      <Text style={styles.settingLabel}>{item.label}</Text>
+                      <Text style={styles.settingDesc}>{item.desc}</Text>
+                    </View>
+                    <View style={[styles.toggle, (notifSettings as any)[item.key] && styles.toggleActive]}>
+                      <View style={[styles.toggleDot, (notifSettings as any)[item.key] && styles.toggleDotActive]} />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+
+                {/* Test Email Button */}
+                <TouchableOpacity
+                  style={styles.sendEmailBtn}
+                  onPress={handleSendTestEmail}
+                  disabled={sendingEmail}
+                  activeOpacity={0.8}
+                  data-testid="send-test-email-btn"
+                >
+                  <Ionicons name={emailSent ? 'checkmark-circle' : 'paper-plane'} size={18} color={emailSent ? '#4ECDC4' : '#6C5CE7'} />
+                  <Text style={[styles.sendEmailText, emailSent && { color: '#4ECDC4' }]}>
+                    {sendingEmail ? 'Sending...' : emailSent ? 'Email Sent!' : 'Send Test Summary Email'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Conversations List */}
               <View style={styles.conversationsSection} data-testid="conversations-list">
                 <Text style={styles.sectionTitle}>Recent Conversations</Text>
@@ -413,6 +506,19 @@ const styles = StyleSheet.create({
   actionButton: { borderRadius: 20, overflow: 'hidden', shadowColor: '#4ECDC4', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8 },
   actionGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 10 },
   actionText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  // Notification settings
+  settingsCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  settingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  settingIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  settingInfo: { flex: 1 },
+  settingLabel: { fontSize: 15, fontWeight: '600', color: '#2D3436' },
+  settingDesc: { fontSize: 12, color: '#AAA', marginTop: 2 },
+  toggle: { width: 48, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', justifyContent: 'center', padding: 3 },
+  toggleActive: { backgroundColor: '#4ECDC4' },
+  toggleDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
+  toggleDotActive: { alignSelf: 'flex-end' as const },
+  sendEmailBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16, paddingVertical: 12, backgroundColor: '#F8F9FF', borderRadius: 14, borderWidth: 1.5, borderColor: '#6C5CE7', gap: 8 },
+  sendEmailText: { fontSize: 14, fontWeight: '600', color: '#6C5CE7' },
   // Conversation detail
   conversationDetail: { flex: 1, padding: 20 },
   conversationDateHeader: { fontSize: 14, fontWeight: '600', color: '#AAA', textAlign: 'center', marginBottom: 20 },

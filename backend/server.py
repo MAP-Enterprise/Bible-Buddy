@@ -1246,6 +1246,9 @@ async def chat(request_data: ChatRequest):
             from_knowledge_base=False
         )
     
+    # Determine if this is a new session (for notification purposes)
+    is_new_session = request_data.session_id is None
+    
     # Check knowledge base first
     kb_answer = find_knowledge_base_answer(request_data.message)
     if kb_answer:
@@ -1296,6 +1299,11 @@ async def chat(request_data: ChatRequest):
         
         await save_chat_messages(session_id, request_data.child_id, request_data.age_tier, 
                                 request_data.message, response_text, audio_url)
+        
+        # Notify parent in background
+        asyncio.create_task(notif_routes.notify_parent_on_chat(
+            request_data.child_id, None, request_data.message, is_new_session
+        ))
         
         return ChatResponse(
             session_id=session_id,
@@ -1350,6 +1358,11 @@ async def chat(request_data: ChatRequest):
     
     await save_chat_messages(session_id, request_data.child_id, request_data.age_tier,
                             request_data.message, response_text, None)
+    
+    # Notify parent in background
+    asyncio.create_task(notif_routes.notify_parent_on_chat(
+        request_data.child_id, None, request_data.message, is_new_session
+    ))
     
     return ChatResponse(
         session_id=session_id,
@@ -1843,8 +1856,17 @@ async def get_verse_of_the_day(age_tier: str = "7-9"):
     return result
 
 
-# Include router
+# ==================== NOTIFICATION & EMAIL ROUTES ====================
+from routes import notifications as notif_routes
+from routes import emails as email_routes
+
+notif_routes.init(db, get_current_user)
+email_routes.init(db, get_current_user)
+
+# Include routers
 app.include_router(api_router)
+app.include_router(notif_routes.router)
+app.include_router(email_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1857,6 +1879,18 @@ app.add_middleware(
 @app.on_event("startup")
 async def prewarm_kb_audio():
     """Pre-generate TTS audio for all knowledge base answers at startup"""
+    # Start weekly email scheduler
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    scheduler = AsyncIOScheduler()
+    
+    async def weekly_email_job():
+        await email_routes.send_all_weekly_summaries()
+    
+    # Sunday evening 6 PM UTC
+    scheduler.add_job(weekly_email_job, 'cron', day_of_week='sun', hour=18, minute=0)
+    scheduler.start()
+    logger.info("Weekly email scheduler started (Sunday 6 PM UTC)")
+    
     if not eleven_client:
         logger.info("TTS not configured, skipping audio pre-warming")
         return
