@@ -1,70 +1,96 @@
 # Bible Buddy - Product Requirements Document
 
 ## Original Problem Statement
-An interactive mobile application for children to ask questions about the Bible and receive safe, age-appropriate answers, featuring both text and voice-based interaction.
-
-## User Personas
-- **Children (4-18):** Primary users who interact with Bible Buddy to ask faith-based questions
-- **Parents:** Manage child profiles, monitor conversations, set safety preferences, view leaderboards
+Build a mobile application called "Bible Buddy" — an interactive app for children to ask questions about the Bible and receive safe, age-appropriate answers.
 
 ## Architecture
-- **Backend:** FastAPI (modular routers), MongoDB, GPT-4o-mini (via Emergent LLM Key)
-- **Frontend:** Expo (React Native), TypeScript, expo-router
-- **Integrations:** OpenAI, ElevenLabs, Deepgram, Resend (email), Expo Push Notifications
-- **Collections:** parents, children, chat_sessions, user_profiles, notification_settings, knowledge_base, teachers, safety_logs, daily_verses, kb_age_cache, verse_challenges, consent_log
+- **Frontend:** Expo (React Native) with TypeScript, expo-router, zustand, expo-av
+- **Backend:** FastAPI with modular APIRouter structure, motor (async MongoDB)
+- **Database:** MongoDB
+- **AI:** OpenAI GPT-4o-mini via Emergent LLM Key
+- **TTS:** ElevenLabs
+- **STT:** Deepgram (REST API)
+- **Email:** Resend
 
-## Backend Structure (Refactored)
-```
-backend/
-  server.py              — App setup, middleware, chat/voice/TTS, startup (1594 lines)
-  bible_verses.py        — 365 daily verses by monthly theme
-  routes/
-    auth.py              — Register, login, session, me, logout
-    children.py          — CRUD, COPPA consent, voice update
-    dashboard.py         — Stats, conversations, KB, teachers, sessions
-    verses.py            — Verse-of-the-day, memory challenge
-    leaderboard.py       — Family leaderboard
-    notifications.py     — Push notifications
-    emails.py            — Weekly summaries, domain verification
-```
+## What's Been Implemented
 
-## Completed Features
-- [x] Core AI conversation engine, safety filtering, knowledge base (56 questions)
-- [x] Voice I/O (STT via Deepgram + TTS via ElevenLabs)
-- [x] Adaptive AI coaching with user profiles
-- [x] Teacher wisdom integration (Selman, Ike, Furtick, Shirer)
-- [x] 365 Verse of the Day with age-appropriate explanations
-- [x] KB Pre-warming (224 age-adapted answers, all 4 tiers)
-- [x] Full Auth System (register, login, JWT sessions)
-- [x] Multi-child Profile Management
-- [x] Parent Dashboard (stats, conversations, child selector)
-- [x] Push Notifications + Weekly Email Summaries (Resend)
-- [x] AI Theological Realignment (Scripture-rooted)
-- [x] Voice Selection (10 voices, onboarding + dashboard)
-- [x] Verse Memory Challenge (fill-in-the-blank, 3 difficulties, streaks)
-- [x] Persistent Conversation History
-- [x] **Challenge Stats in Parent Dashboard** — Mar 2026
-- [x] **COPPA-Compliant Parental Consent** (name verification, audit log, policy endpoint) — Mar 2026
-- [x] **Modular Router Refactor** (server.py 2296→1594 lines, 7 route modules) — Mar 2026
-- [x] **Family Leaderboard** (ranked children, family aggregate stats) — Mar 2026
-- [x] **Resend Domain Verification** (status check, DNS setup instructions) — Mar 2026
+### Core Features (Complete)
+- Full JWT authentication system (sign-up, sign-in, sessions)
+- Multiple child profile management per parent
+- Age-tiered AI chat (4-6, 7-9, 10-12, 13-18)
+- Knowledge base with 56 pre-loaded questions × 4 age tiers = 224 cached answers
+- Content safety filtering
+- Adaptive user profiling (learns from conversations)
+- Featured teacher wisdom integration (Apostle Selman, Pastor Stephanie Ike, Pastor Steven Furtick, Priscilla Shirer)
+
+### Voice Features (Complete)
+- Text-to-Speech via ElevenLabs (10 voice options)
+- Speech-to-Text via Deepgram
+- Voice selection during onboarding and in parent dashboard
+- Background TTS generation with polling
+
+### Engagement Features (Complete)
+- 365-day Verse of the Day system
+- Verse Memory Challenge (fill-in-the-blank game with difficulty levels)
+- Family Leaderboard
+- **Bible Story of the Week** (52 stories, AI-generated narratives per age tier, discussion questions, cached in MongoDB)
+
+### Parent Features (Complete)
+- Parent Dashboard (manage children, view stats, configure notifications)
+- COPPA-compliant parental consent flow
+- Challenge statistics per child
+- Notification system (push + email via Resend)
+- Resend domain verification guide
+
+### Architecture (Complete)
+- Backend refactored from monolithic server.py to modular APIRouter files
+- KB pre-warming at startup for instant responses
 
 ## Key API Endpoints
-- Auth: POST /api/auth/register, /login, /logout, GET /me
-- Children: POST/GET/PUT /api/children, PATCH voice, POST consent
-- Chat: POST /api/chat
-- Dashboard: GET /api/dashboard/stats/{id}, /conversations/{id}
-- Verses: GET /api/verse-of-the-day, /verse-challenge, POST /submit, GET /stats
-- Leaderboard: GET /api/leaderboard
-- COPPA: GET /api/coppa-policy
-- Email: GET /api/email/domain-status
+- `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`
+- `POST /api/chat`, `POST /api/voice-chat`
+- `GET /api/verse-of-the-day`, `GET /api/verse-challenge`, `POST /api/verse-challenge/submit`
+- `GET /api/story-of-the-week`
+- `GET /api/family-leaderboard`
+- `GET /api/children/{parent_id}`, `POST /api/children`, `POST /api/children/consent`
+- `GET /api/voices`, `POST /api/voices/preview`
+- `GET /api/health`
 
-## P1 (Next)
-- True streaming responses (SSE word-by-word)
-- Daily reward/badge system for challenge streaks
-- Full QA on iOS/Android native
+## DB Collections
+- `parents`, `children`, `user_sessions`
+- `sessions` (chat), `user_profiles`, `safety_logs`
+- `daily_verses`, `kb_age_cache`, `age_adapted_kb_cache`
+- `verse_challenges`, `weekly_stories`
+- `knowledge_base`, `teachers`
 
-## P2 (Future)
-- Production deployment
-- Shareable results cards (social sharing)
-- Multi-language Bible support
+## Prioritized Backlog
+
+### P1 - Full QA Testing
+- Comprehensive testing across all major flows (auth, chat, verse challenge, leaderboard, story of the week, parent dashboard)
+
+### P1 - Implement True Streaming
+- Upgrade AI responses to word-by-word streaming via Server-Sent Events (SSE)
+
+### P2 - Refine Parent Dashboard UI
+- Break down large components (parent-dashboard.tsx, index.tsx) into smaller sub-components
+
+### P3 - Internationalization (i18n)
+- Add multi-language support
+
+## File Structure
+```
+/app/backend/
+├── server.py (orchestrator)
+├── bible_stories.py (52 weekly stories)
+├── bible_verses.py (365 daily verses)
+├── routes/ (auth, children, dashboard, emails, kb, leaderboard, notifications, sessions, teachers, verses)
+├── data/ (verses_of_the_day.py)
+└── audio_cache/
+
+/app/frontend/
+├── app/ (index, chat, bible-story, verse-challenge, leaderboard, parent-dashboard, sign-in, sign-up, onboarding)
+├── components/
+├── contexts/ (AuthContext)
+├── helpers/ (storage)
+└── hooks/
+```
