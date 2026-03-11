@@ -14,6 +14,7 @@ interface AuthContextType {
   addChild: (name: string, ageTier: string, voiceId?: string) => Promise<{ success: boolean; child?: Child; error?: string }>;
   setActiveChild: (child: Child) => Promise<void>;
   refreshChildren: () => Promise<void>;
+  updateChildVoice: (childId: string, voiceId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);

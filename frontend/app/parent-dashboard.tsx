@@ -14,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuthContext, } from '../contexts/AuthContext';
+import { useAuthContext } from '../contexts/AuthContext';
 import type { Child } from '../hooks/useAuth';
+import VoicePicker from '../components/VoicePicker';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -37,13 +38,15 @@ interface ChildStats {
 }
 
 export default function ParentDashboardScreen() {
-  const { isAuthenticated, user, token, children: childProfiles, activeChild, setActiveChild, refreshChildren } = useAuthContext();
+  const { isAuthenticated, user, token, children: childProfiles, activeChild, setActiveChild, refreshChildren, updateChildVoice } = useAuthContext();
   const [stats, setStats] = useState<ChildStats | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showChildPicker, setShowChildPicker] = useState(false);
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [savingVoice, setSavingVoice] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [notifSettings, setNotifSettings] = useState({
     notify_on_session_start: true,
@@ -145,6 +148,16 @@ export default function ParentDashboardScreen() {
       console.error('Send email error:', e);
     } finally {
       setSendingEmail(false);
+    }
+  };
+
+  const handleVoiceChange = async (voiceId: string) => {
+    if (!activeChild) return;
+    setSavingVoice(true);
+    const result = await updateChildVoice(activeChild.child_id, voiceId);
+    setSavingVoice(false);
+    if (!result.success) {
+      console.error('Voice update error:', result.error);
     }
   };
 
@@ -381,6 +394,39 @@ export default function ParentDashboardScreen() {
                 </TouchableOpacity>
               </View>
 
+              {/* Voice Settings */}
+              <View style={styles.settingsCard} data-testid="voice-settings">
+                <TouchableOpacity
+                  style={styles.voiceSettingsHeader}
+                  onPress={() => setShowVoiceSettings(!showVoiceSettings)}
+                  activeOpacity={0.7}
+                  data-testid="toggle-voice-settings"
+                >
+                  <View style={[styles.settingIcon, { backgroundColor: '#F0ECFF' }]}>
+                    <Ionicons name="mic" size={20} color="#6C5CE7" />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>Voice Settings</Text>
+                    <Text style={styles.settingDesc}>Change {activeChild?.name}'s Bible Buddy voice</Text>
+                  </View>
+                  <Ionicons name={showVoiceSettings ? 'chevron-up' : 'chevron-down'} size={22} color="#6C5CE7" />
+                </TouchableOpacity>
+                {savingVoice && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 8 }}>
+                    <ActivityIndicator size="small" color="#4ECDC4" />
+                    <Text style={{ color: '#4ECDC4', fontWeight: '600', fontSize: 13 }}>Saving voice...</Text>
+                  </View>
+                )}
+                {showVoiceSettings && (
+                  <View style={{ marginTop: 14 }}>
+                    <VoicePicker
+                      selectedVoiceId={activeChild?.voice_id || 'EXAVITQu4vr4xnSDxMaL'}
+                      onSelect={handleVoiceChange}
+                    />
+                  </View>
+                )}
+              </View>
+
               {/* Conversations List */}
               <View style={styles.conversationsSection} data-testid="conversations-list">
                 <Text style={styles.sectionTitle}>Recent Conversations</Text>
@@ -519,6 +565,7 @@ const styles = StyleSheet.create({
   toggleDotActive: { alignSelf: 'flex-end' as const },
   sendEmailBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16, paddingVertical: 12, backgroundColor: '#F8F9FF', borderRadius: 14, borderWidth: 1.5, borderColor: '#6C5CE7', gap: 8 },
   sendEmailText: { fontSize: 14, fontWeight: '600', color: '#6C5CE7' },
+  voiceSettingsHeader: { flexDirection: 'row', alignItems: 'center' },
   // Conversation detail
   conversationDetail: { flex: 1, padding: 20 },
   conversationDateHeader: { fontSize: 14, fontWeight: '600', color: '#AAA', textAlign: 'center', marginBottom: 20 },

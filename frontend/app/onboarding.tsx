@@ -26,6 +26,8 @@ const AGE_TIERS = [
   { value: '13-18', label: '13-18 years', emoji: '\ud83c\udf93', desc: 'Teen', color: '#6C5CE7', bg: '#EDE9FE' },
 ];
 
+const TOTAL_STEPS = 4;
+
 export default function OnboardingScreen() {
   const { isAuthenticated, addChild } = useAuthContext();
   const [step, setStep] = useState(1);
@@ -39,6 +41,8 @@ export default function OnboardingScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(30);
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
@@ -54,9 +58,6 @@ export default function OnboardingScreen() {
   };
 
   const handleContinue = async () => {
-    fadeAnim.setValue(0);
-    slideAnim.setValue(30);
-    
     if (step === 1) {
       if (!childName.trim()) {
         showAlert('Oops!', "Please enter your child's name");
@@ -70,7 +71,7 @@ export default function OnboardingScreen() {
       }
       setStep(3);
     } else if (step === 3) {
-      // Voice selection - always has a default, so just continue
+      // Voice selection — always has a default, so just continue
       setStep(4);
     } else if (step === 4) {
       if (!consentGiven) {
@@ -85,7 +86,6 @@ export default function OnboardingScreen() {
     setIsLoading(true);
     try {
       if (isAuthenticated) {
-        // Create child via API
         const result = await addChild(childName.trim(), selectedAgeTier, selectedVoice);
         if (!result.success) {
           showAlert('Error', result.error || 'Failed to create profile');
@@ -168,6 +168,20 @@ export default function OnboardingScreen() {
   const renderStep3 = () => (
     <Animated.View style={[styles.stepContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.stepHeader}>
+        <View style={[styles.emojiCircle, { backgroundColor: '#F0ECFF' }]}>
+          <Ionicons name="mic" size={42} color="#6C5CE7" />
+        </View>
+        <Text style={styles.stepTitle}>Choose a Voice</Text>
+        <Text style={styles.stepSubtitle}>Pick who reads Bible answers to {childName}</Text>
+      </View>
+
+      <VoicePicker selectedVoiceId={selectedVoice} onSelect={setSelectedVoice} />
+    </Animated.View>
+  );
+
+  const renderStep4 = () => (
+    <Animated.View style={[styles.stepContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      <View style={styles.stepHeader}>
         <View style={[styles.emojiCircle, { backgroundColor: '#E0F7F5' }]}>
           <Text style={styles.headerEmoji}>{'\ud83d\udee1\ufe0f'}</Text>
         </View>
@@ -202,6 +216,17 @@ export default function OnboardingScreen() {
     </Animated.View>
   );
 
+  const getButtonColors = (): [string, string] => {
+    if (step === 4) return ['#4ECDC4', '#44A08D'];
+    if (step === 3) return ['#6C5CE7', '#A29BFE'];
+    return ['#FF6B6B', '#FF8E53'];
+  };
+
+  const getButtonText = () => {
+    if (step === 4) return "Let's Start!";
+    return 'Continue';
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -212,7 +237,7 @@ export default function OnboardingScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.progressContainer}>
-            {[1, 2, 3, 4].map((s) => (
+            {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
               <View key={s} style={[styles.progressDot, step >= s && styles.progressDotActive]} />
             ))}
           </View>
@@ -224,12 +249,13 @@ export default function OnboardingScreen() {
         {step === 1 && renderStep1()}
         {step === 2 && renderStep2()}
         {step === 3 && renderStep3()}
+        {step === 4 && renderStep4()}
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue} disabled={isLoading} activeOpacity={0.9} data-testid="onboarding-continue-btn">
           <LinearGradient
-            colors={step === 3 ? ['#4ECDC4', '#44A08D'] : ['#FF6B6B', '#FF8E53']}
+            colors={getButtonColors()}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.continueGradient}
@@ -238,9 +264,7 @@ export default function OnboardingScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Text style={styles.continueText}>
-                  {step === 3 ? "Let's Start!" : 'Continue'}
-                </Text>
+                <Text style={styles.continueText}>{getButtonText()}</Text>
                 <Ionicons name="arrow-forward-circle" size={26} color="#fff" />
               </>
             )}
@@ -260,7 +284,7 @@ const styles = StyleSheet.create({
   progressDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.3)' },
   progressDotActive: { backgroundColor: '#fff', width: 28 },
   scrollContent: { flex: 1 },
-  scrollContainer: { padding: 24 },
+  scrollContainer: { padding: 24, paddingBottom: 40 },
   stepContent: { flex: 1 },
   stepHeader: { alignItems: 'center', marginBottom: 32 },
   emojiCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },

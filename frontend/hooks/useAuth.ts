@@ -17,6 +17,7 @@ export interface Child {
   age_tier: string;
   avatar?: string;
   preferred_translation: string;
+  voice_id?: string;
   parental_consent_given: boolean;
 }
 
@@ -254,6 +255,30 @@ export function useAuth() {
     setState(s => ({ ...s, children, activeChild }));
   };
 
+  const updateChildVoice = async (childId: string, voiceId: string): Promise<{ success: boolean; error?: string }> => {
+    if (!state.token) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/children/${childId}/voice`, {
+        method: 'PATCH',
+        headers: getHeaders(state.token),
+        body: JSON.stringify({ voice_id: voiceId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        return { success: false, error: err.detail || 'Failed to update voice' };
+      }
+      const updatedChild: Child = await res.json();
+      setState(s => ({
+        ...s,
+        children: s.children.map(c => c.child_id === childId ? updatedChild : c),
+        activeChild: s.activeChild?.child_id === childId ? updatedChild : s.activeChild,
+      }));
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error' };
+    }
+  };
+
   return {
     ...state,
     login,
@@ -262,5 +287,6 @@ export function useAuth() {
     addChild,
     setActiveChild,
     refreshChildren,
+    updateChildVoice,
   };
 }

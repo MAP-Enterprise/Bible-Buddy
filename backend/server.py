@@ -1285,6 +1285,31 @@ async def give_parental_consent(child_id: str, request: Request):
     
     return {"message": "Parental consent recorded", "child_id": child_id}
 
+class VoiceUpdateRequest(BaseModel):
+    voice_id: str
+
+@api_router.patch("/children/{child_id}/voice")
+async def update_child_voice(child_id: str, body: VoiceUpdateRequest, request: Request):
+    """Update only the voice_id for a child profile"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Validate voice_id exists
+    valid_ids = [v["id"] for v in VOICE_OPTIONS]
+    if body.voice_id not in valid_ids:
+        raise HTTPException(status_code=400, detail="Invalid voice_id")
+    
+    result = await db.children.update_one(
+        {"child_id": child_id, "parent_id": user["user_id"]},
+        {"$set": {"voice_id": body.voice_id}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Child not found")
+    
+    child = await db.children.find_one({"child_id": child_id}, {"_id": 0})
+    return child
+
 # ==================== CHAT ENDPOINTS ====================
 
 @api_router.post("/chat", response_model=ChatResponse)
