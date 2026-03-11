@@ -21,22 +21,22 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 - Knowledge base with 56 pre-loaded questions × 4 age tiers = 224 cached answers
 - Content safety filtering
 - Adaptive user profiling (learns from conversations)
-- Featured teacher wisdom integration (Apostle Selman, Pastor Stephanie Ike, Pastor Steven Furtick, Priscilla Shirer)
+- Featured teacher wisdom integration
 
 ### Voice Features (Complete)
 - Text-to-Speech via ElevenLabs (10 voice options)
 - Speech-to-Text via Deepgram
 - Voice selection during onboarding and in parent dashboard
-- Background TTS generation with polling
 
 ### Engagement Features (Complete)
 - 365-day Verse of the Day system
-- Verse Memory Challenge (fill-in-the-blank game with difficulty levels)
+- Verse Memory Challenge (fill-in-the-blank game)
 - Family Leaderboard
-- **Bible Story of the Week** (52 stories, AI-generated narratives per age tier, discussion questions, cached in MongoDB)
+- **Bible Story of the Week** (52 stories, AI-generated narratives, discussion questions)
+- **Story Progress Tracker** (mark stories read, 12 achievement badges, reading streaks, progress bar, parent dashboard integration)
 
 ### Parent Features (Complete)
-- Parent Dashboard (manage children, view stats, configure notifications)
+- Parent Dashboard (manage children, view stats, configure notifications, reading progress)
 - COPPA-compliant parental consent flow
 - Challenge statistics per child
 - Notification system (push + email via Resend)
@@ -51,6 +51,7 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 - `POST /api/chat`, `POST /api/voice-chat`
 - `GET /api/verse-of-the-day`, `GET /api/verse-challenge`, `POST /api/verse-challenge/submit`
 - `GET /api/story-of-the-week`
+- `POST /api/story-progress/mark-read`, `GET /api/story-progress/{child_id}`
 - `GET /api/family-leaderboard`
 - `GET /api/children/{parent_id}`, `POST /api/children`, `POST /api/children/consent`
 - `GET /api/voices`, `POST /api/voices/preview`
@@ -60,19 +61,25 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 - `parents`, `children`, `user_sessions`
 - `sessions` (chat), `user_profiles`, `safety_logs`
 - `daily_verses`, `kb_age_cache`, `age_adapted_kb_cache`
-- `verse_challenges`, `weekly_stories`
+- `verse_challenges`, `weekly_stories`, `story_progress`
 - `knowledge_base`, `teachers`
+
+## Badge System (Story Progress Tracker)
+### Total Read Milestones
+- First Story (1), Getting Started (3), Story Explorer (5), Faithful Reader (10), Bible Scholar (25), Story Master (52)
+### Streak Milestones
+- Week Warrior (2w), Steady Reader (4w), Devoted Family (8w), Unstoppable (12w), Half Year Hero (26w), Story Champion (52w)
 
 ## Prioritized Backlog
 
 ### P1 - Full QA Testing
-- Comprehensive testing across all major flows (auth, chat, verse challenge, leaderboard, story of the week, parent dashboard)
+- Comprehensive testing across all major flows
 
 ### P1 - Implement True Streaming
-- Upgrade AI responses to word-by-word streaming via Server-Sent Events (SSE)
+- Upgrade AI responses to word-by-word streaming via SSE
 
 ### P2 - Refine Parent Dashboard UI
-- Break down large components (parent-dashboard.tsx, index.tsx) into smaller sub-components
+- Break down large components into smaller sub-components
 
 ### P3 - Internationalization (i18n)
 - Add multi-language support
@@ -83,8 +90,7 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 ├── server.py (orchestrator)
 ├── bible_stories.py (52 weekly stories)
 ├── bible_verses.py (365 daily verses)
-├── routes/ (auth, children, dashboard, emails, kb, leaderboard, notifications, sessions, teachers, verses)
-├── data/ (verses_of_the_day.py)
+├── routes/ (auth, children, dashboard, emails, kb, notifications, sessions, teachers, verses)
 └── audio_cache/
 
 /app/frontend/
