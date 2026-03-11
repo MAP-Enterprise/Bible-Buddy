@@ -19,7 +19,7 @@ An interactive mobile application for children to ask questions about the Bible 
 - **Backend:** FastAPI, MongoDB, GPT-4o-mini (via Emergent LLM Key)
 - **Frontend:** Expo (React Native), TypeScript, expo-router
 - **Integrations:** OpenAI, ElevenLabs, Deepgram, Resend (email), Expo Push Notifications
-- **Collections:** parents, children, chat_sessions, user_profiles, notification_settings, knowledge_base, teachers, safety_logs, daily_verses, age_adapted_kb_cache
+- **Collections:** parents, children, chat_sessions, user_profiles, notification_settings, knowledge_base, teachers, safety_logs, daily_verses, kb_age_cache
 
 ## Completed Features
 - [x] Phase 1: Core AI conversation engine, safety filtering, knowledge base
@@ -28,34 +28,36 @@ An interactive mobile application for children to ask questions about the Bible 
 - [x] Teacher wisdom integration (natural, no name-dropping)
 - [x] Verse of the Day with age-appropriate explanations
 - [x] Performance optimization (text-first, audio-later, in-memory caching)
-- [x] Full Authentication System (register, login, JWT sessions) - Mar 2026
-- [x] Multi-child Profile Management (one parent, multiple children) - Mar 2026
-- [x] Connected Parent Dashboard (real stats, conversation history, child selector) - Mar 2026
-- [x] Auth-aware UI (sign-in/sign-up screens, auth guards, personalized home) - Mar 2026
-- [x] Push Notifications (Expo Push API, configurable per parent) - Mar 2026
-- [x] Weekly Summary Emails (Resend, Sunday evening, HTML template) - Mar 2026
-- [x] Notification Settings Dashboard (3 configurable toggles + test email button) - Mar 2026
-- [x] AI Theological Realignment (Scripture-rooted answers, not generic) - Mar 2026
-- [x] **Voice Selection** (10 voices: 5F/5M, American/British/African accents, preview, onboarding step 3, parent dashboard management) - Mar 2026
+- [x] Full Authentication System (register, login, JWT sessions)
+- [x] Multi-child Profile Management (one parent, multiple children)
+- [x] Connected Parent Dashboard (real stats, conversation history, child selector)
+- [x] Auth-aware UI (sign-in/sign-up screens, auth guards, personalized home)
+- [x] Push Notifications (Expo Push API, configurable per parent)
+- [x] Weekly Summary Emails (Resend, Sunday evening, HTML template)
+- [x] Notification Settings Dashboard (3 configurable toggles + test email button)
+- [x] AI Theological Realignment (Scripture-rooted answers, not generic)
+- [x] Voice Selection (10 voices: 5F/5M, American/British/African accents, onboarding + dashboard)
+- [x] **365 Verse of the Day** — Unique verse every day, themed by month (love, faith, courage, hope, wisdom, prayer, joy, identity, creation, Jesus, gratitude, promises) — Mar 2026
+- [x] **KB Age Pre-warming** — All 224 age-adapted answers (56 questions × 4 tiers) pre-generated at startup, 100% cached — Mar 2026
+- [x] **Persistent Conversation History** — All chat messages saved to DB, viewable in parent dashboard with session detail — Mar 2026
 
 ## Current State (Mar 2026)
-The app is fully functional with authentication, multi-child support, connected parent dashboard, push notifications, weekly summary emails, and user-selectable voices. Voice selection is available during onboarding (Step 3) and changeable from the Parent Dashboard.
+Fully functional app with authentication, multi-child support, parent dashboard, notifications, voice selection, 365 daily verses, instant KB responses for all age tiers, and persistent conversation history.
 
 ## Key Files
-- `/app/backend/server.py` - Main backend (chat, auth, dashboard, voice, child profiles)
-- `/app/backend/routes/notifications.py` - Push notification routes and logic
-- `/app/backend/routes/emails.py` - Weekly email summary routes (Resend)
-- `/app/frontend/hooks/useAuth.ts` - Auth hook with token management + updateChildVoice
+- `/app/backend/server.py` - Main backend orchestrator
+- `/app/backend/bible_verses.py` - 365 verses organized by monthly themes
+- `/app/backend/routes/notifications.py` - Push notification routes
+- `/app/backend/routes/emails.py` - Weekly email summary routes
+- `/app/frontend/hooks/useAuth.ts` - Auth hook + updateChildVoice
 - `/app/frontend/contexts/AuthContext.tsx` - Auth context provider
-- `/app/frontend/components/VoicePicker.tsx` - Voice selection UI component
+- `/app/frontend/components/VoicePicker.tsx` - Voice selection UI
 - `/app/frontend/app/onboarding.tsx` - 4-step onboarding (name → age → voice → consent)
-- `/app/frontend/app/parent-dashboard.tsx` - Dashboard with voice settings, notifications, stats
+- `/app/frontend/app/parent-dashboard.tsx` - Dashboard with voice/notification settings, stats, conversations
+- `/app/frontend/app/index.tsx` - Home screen with verse of the day
+- `/app/frontend/app/chat.tsx` - Chat interface
 
-## P0 (Next Priority)
-- Pre-warm ALL KB age-adapted answers at startup (all 4 tiers)
-- Persistent conversation history (save all messages to DB)
-
-## P1 (Upcoming)
+## P1 (Next Priority)
 - COPPA-compliant parental consent flow
 - Refactor server.py into modular FastAPI routers
 - Verify a custom domain in Resend for production emails
