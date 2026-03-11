@@ -164,10 +164,10 @@ export default function HomeScreen() {
   }
 
   const features = [
-    { icon: 'chatbubbles', color: '#FF6B6B', bg: '#FFE8E8', label: 'Chat' },
-    { icon: 'mic', color: '#4ECDC4', bg: '#E0F7F5', label: 'Voice' },
-    { icon: 'book', color: '#FFD93D', bg: '#FFF8E0', label: 'Learn' },
-    { icon: 'shield-checkmark', color: '#6C5CE7', bg: '#EDE9FE', label: 'Safe' },
+    { icon: 'chatbubbles', color: '#FF6B6B', bg: '#FFE8E8', label: 'Chat', route: '/chat' },
+    { icon: 'mic', color: '#4ECDC4', bg: '#E0F7F5', label: 'Voice', route: '/chat' },
+    { icon: 'book', color: '#FFD93D', bg: '#FFF8E0', label: 'Learn', route: '/bible-story' },
+    { icon: 'shield-checkmark', color: '#6C5CE7', bg: '#EDE9FE', label: 'Safe', route: '/parent-dashboard' },
   ];
 
   return (
@@ -331,12 +331,18 @@ export default function HomeScreen() {
           {/* Features Grid */}
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
-              <View key={index} style={[styles.featureCard, { backgroundColor: feature.bg }]} data-testid={`feature-${feature.label.toLowerCase()}`}>
+              <TouchableOpacity
+                key={index}
+                style={[styles.featureCard, { backgroundColor: feature.bg }]}
+                data-testid={`feature-${feature.label.toLowerCase()}`}
+                onPress={() => router.push(feature.route as any)}
+                activeOpacity={0.7}
+              >
                 <View style={[styles.featureIcon, { backgroundColor: feature.color }]}>
                   <Ionicons name={feature.icon as any} size={24} color="#fff" />
                 </View>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: feature.color, textAlign: 'center' }}>{feature.label}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
 
