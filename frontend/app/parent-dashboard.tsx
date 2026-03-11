@@ -48,6 +48,7 @@ export default function ParentDashboardScreen() {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [savingVoice, setSavingVoice] = useState(false);
   const [challengeStats, setChallengeStats] = useState<any>(null);
+  const [readingProgress, setReadingProgress] = useState<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [notifSettings, setNotifSettings] = useState({
     notify_on_session_start: true,
@@ -77,11 +78,12 @@ export default function ParentDashboardScreen() {
   const loadChildData = async (childId: string) => {
     setIsLoading(true);
     try {
-      const [statsRes, convsRes, settingsRes, challengeRes] = await Promise.all([
+      const [statsRes, convsRes, settingsRes, challengeRes, progressRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/dashboard/stats/${childId}`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/dashboard/conversations/${childId}`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/notifications/settings`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/verse-challenge/stats/${childId}`),
+        fetch(`${BACKEND_URL}/api/story-progress/${childId}`),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (convsRes.ok) {
@@ -97,6 +99,7 @@ export default function ParentDashboardScreen() {
         });
       }
       if (challengeRes.ok) setChallengeStats(await challengeRes.json());
+      if (progressRes.ok) setReadingProgress(await progressRes.json());
     } catch (e) {
       console.error('Dashboard load error:', e);
     } finally {
@@ -393,6 +396,74 @@ export default function ParentDashboardScreen() {
                 </TouchableOpacity>
               )}
 
+              {/* Reading Progress Card */}
+              {readingProgress && (
+                <TouchableOpacity
+                  style={styles.readingProgressCard}
+                  onPress={() => router.push('/bible-story')}
+                  activeOpacity={0.8}
+                  data-testid="reading-progress-card"
+                >
+                  <View style={styles.readingProgressHeader}>
+                    <Ionicons name="book" size={22} color="#E056A0" />
+                    <Text style={styles.readingProgressTitle}>Story Reading Progress</Text>
+                    <Ionicons name="chevron-forward" size={18} color="#AAA" />
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View style={styles.readingProgressBarBg}>
+                    <View style={[styles.readingProgressBarFill, { width: `${Math.round((readingProgress.total_read / 52) * 100)}%` }]} />
+                  </View>
+                  <Text style={styles.readingProgressBarLabel}>
+                    {readingProgress.total_read} of 52 stories read ({Math.round((readingProgress.total_read / 52) * 100)}%)
+                  </Text>
+
+                  <View style={styles.readingStatsRow}>
+                    <View style={styles.readingStat}>
+                      <Ionicons name="flame" size={20} color="#FF6B6B" />
+                      <Text style={styles.readingStatValue}>{readingProgress.current_streak}</Text>
+                      <Text style={styles.readingStatLabel}>Streak</Text>
+                    </View>
+                    <View style={styles.readingStatDivider} />
+                    <View style={styles.readingStat}>
+                      <Ionicons name="trophy" size={20} color="#FFD93D" />
+                      <Text style={styles.readingStatValue}>{readingProgress.best_streak}</Text>
+                      <Text style={styles.readingStatLabel}>Best</Text>
+                    </View>
+                    <View style={styles.readingStatDivider} />
+                    <View style={styles.readingStat}>
+                      <Ionicons name="star" size={20} color="#6C5CE7" />
+                      <Text style={styles.readingStatValue}>{readingProgress.badges_earned}</Text>
+                      <Text style={styles.readingStatLabel}>Badges</Text>
+                    </View>
+                  </View>
+
+                  {/* Earned Badges */}
+                  {readingProgress.badges && readingProgress.badges.filter((b: any) => b.earned).length > 0 && (
+                    <View style={styles.earnedBadgesRow}>
+                      {readingProgress.badges.filter((b: any) => b.earned).map((badge: any) => (
+                        <View key={badge.id} style={[styles.earnedBadge, { backgroundColor: `${badge.color}15` }]}>
+                          <Ionicons name={badge.icon as any} size={16} color={badge.color} />
+                          <Text style={[styles.earnedBadgeText, { color: badge.color }]}>{badge.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Next Badge Preview */}
+                  {readingProgress.badges && (() => {
+                    const nextBadge = readingProgress.badges.find((b: any) => !b.earned);
+                    if (!nextBadge) return null;
+                    return (
+                      <View style={styles.nextBadgeRow}>
+                        <Ionicons name="lock-closed" size={14} color="#CCC" />
+                        <Text style={styles.nextBadgeText}>Next: {nextBadge.name} — {nextBadge.description}</Text>
+                      </View>
+                    );
+                  })()}
+                </TouchableOpacity>
+              )}
+
               {/* Topics Section */}
               {stats?.most_asked_topics && stats.most_asked_topics.length > 0 && (
                 <View style={styles.topicsCard} data-testid="topics-card">
@@ -639,6 +710,23 @@ const styles = StyleSheet.create({
   leaderboardLink: { borderRadius: 16, overflow: 'hidden', marginBottom: 20 },
   leaderboardGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 10 },
   leaderboardLinkText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  // Reading Progress
+  readingProgressCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20, shadowColor: '#E056A0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
+  readingProgressHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
+  readingProgressTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#2D3436' },
+  readingProgressBarBg: { height: 10, backgroundColor: '#F0F0F0', borderRadius: 5, marginBottom: 6, overflow: 'hidden' },
+  readingProgressBarFill: { height: '100%', backgroundColor: '#E056A0', borderRadius: 5 },
+  readingProgressBarLabel: { fontSize: 12, color: '#636E72', fontWeight: '600', marginBottom: 16 },
+  readingStatsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginBottom: 16 },
+  readingStat: { alignItems: 'center', gap: 4 },
+  readingStatValue: { fontSize: 22, fontWeight: '800', color: '#2D3436' },
+  readingStatLabel: { fontSize: 11, color: '#636E72', fontWeight: '600' },
+  readingStatDivider: { width: 1, height: 40, backgroundColor: '#F0F0F0' },
+  earnedBadgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  earnedBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, gap: 4 },
+  earnedBadgeText: { fontSize: 12, fontWeight: '700' },
+  nextBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
+  nextBadgeText: { fontSize: 12, color: '#999', fontStyle: 'italic' },
   // Conversation detail
   conversationDetail: { flex: 1, padding: 20 },
   conversationDateHeader: { fontSize: 14, fontWeight: '600', color: '#AAA', textAlign: 'center', marginBottom: 20 },

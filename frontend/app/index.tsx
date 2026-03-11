@@ -46,6 +46,7 @@ export default function HomeScreen() {
   const [verseData, setVerseData] = useState<VerseOfTheDay | null>(null);
   const [verseLoading, setVerseLoading] = useState(true);
   const [storyData, setStoryData] = useState<WeeklyStory | null>(null);
+  const [storyProgress, setStoryProgress] = useState<{ current_streak: number; total_read: number; badges_earned: number } | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -75,6 +76,18 @@ export default function HomeScreen() {
       }
     } catch (e) {
       console.log('Story fetch error:', e);
+    }
+    // Fetch progress if child is active
+    if (activeChild?.child_id) {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/story-progress/${activeChild.child_id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setStoryProgress({ current_streak: data.current_streak, total_read: data.total_read, badges_earned: data.badges_earned });
+        }
+      } catch (e) {
+        console.log('Progress fetch error:', e);
+      }
     }
   };
 
@@ -233,9 +246,27 @@ export default function HomeScreen() {
                 <Text style={styles.storyTitle}>{storyData.title}</Text>
                 <Text style={styles.storyRef}>{storyData.reference}</Text>
                 <Text style={styles.storySummary} numberOfLines={2}>{storyData.summary}</Text>
-                <View style={styles.storyThemePill}>
-                  <Ionicons name="sparkles" size={12} color="#fff" />
-                  <Text style={styles.storyThemeText}>{storyData.theme}</Text>
+                <View style={styles.storyFooter}>
+                  <View style={styles.storyThemePill}>
+                    <Ionicons name="sparkles" size={12} color="#fff" />
+                    <Text style={styles.storyThemeText}>{storyData.theme}</Text>
+                  </View>
+                  {storyProgress && (storyProgress.current_streak > 0 || storyProgress.badges_earned > 0) && (
+                    <View style={styles.storyProgressRow} data-testid="story-progress-badges">
+                      {storyProgress.current_streak > 0 && (
+                        <View style={styles.storyProgressPill}>
+                          <Ionicons name="flame" size={12} color="#FFD93D" />
+                          <Text style={styles.storyProgressText}>{storyProgress.current_streak}w</Text>
+                        </View>
+                      )}
+                      {storyProgress.badges_earned > 0 && (
+                        <View style={styles.storyProgressPill}>
+                          <Ionicons name="star" size={12} color="#FFD93D" />
+                          <Text style={styles.storyProgressText}>{storyProgress.badges_earned}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -384,6 +415,10 @@ const styles = StyleSheet.create({
   storyTitle: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 4 },
   storyRef: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginBottom: 10 },
   storySummary: { fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 20, marginBottom: 14 },
-  storyThemePill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, gap: 5 },
+  storyThemePill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, gap: 5 },
   storyThemeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  storyFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  storyProgressRow: { flexDirection: 'row', gap: 6 },
+  storyProgressPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, gap: 4 },
+  storyProgressText: { fontSize: 11, fontWeight: '700', color: '#fff' },
 });

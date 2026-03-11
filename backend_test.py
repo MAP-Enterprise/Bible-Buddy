@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
 """
-Bible Story of the Week - Backend API Testing
-
-This script tests the Bible Story of the Week feature for the Bible Buddy app
-as specified in the review request.
-
-Test Requirements:
-1. Test `/api/story-of-the-week` endpoint
-2. Test caching behavior
-3. Test other existing endpoints for regression
+Comprehensive Backend Testing for Bible Buddy - Story Progress Tracker Feature
+Testing against: https://bible-buddy-19.preview.emergentagent.com/api
 """
 
 import asyncio
@@ -17,332 +10,412 @@ import json
 import time
 from datetime import datetime
 
-# Backend URL from frontend environment configuration
-BACKEND_URL = "https://bible-buddy-19.preview.emergentagent.com"
-API_BASE_URL = f"{BACKEND_URL}/api"
+# Base URL from frontend .env
+BASE_URL = "https://bible-buddy-19.preview.emergentagent.com/api"
 
-class BibleStoryTester:
+class StoryProgressTester:
     def __init__(self):
         self.session = None
-        self.test_results = []
+        self.results = []
         
-    async def __aenter__(self):
+    async def create_session(self):
+        """Create HTTP session"""
         self.session = aiohttp.ClientSession()
-        return self
-        
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    
+    async def close_session(self):
+        """Close HTTP session"""
         if self.session:
             await self.session.close()
     
-    def log_test(self, test_name: str, success: bool, message: str, details: dict = None):
+    def log_result(self, test_name: str, success: bool, details: str = ""):
         """Log test result"""
-        result = {
-            "test": test_name,
-            "success": success,
-            "message": message,
-            "details": details or {},
-            "timestamp": datetime.now().isoformat()
-        }
-        self.test_results.append(result)
-        status = "✅ PASS" if success else "❌ FAIL"
-        print(f"{status}: {test_name} - {message}")
+        status = "✅ PASSED" if success else "❌ FAILED"
+        print(f"{status}: {test_name}")
         if details:
-            print(f"   Details: {details}")
+            print(f"  📝 {details}")
+        self.results.append({"test": test_name, "success": success, "details": details})
     
-    async def test_story_endpoint_with_age_tiers(self):
-        """Test 1: /api/story-of-the-week endpoint with different age tiers"""
-        print("\n🧪 Testing /api/story-of-the-week endpoint...")
-        
-        age_tiers = ["7-9", "4-6", "13-18", None]  # None tests default
-        required_fields = ["week_key", "week_number", "title", "reference", "characters", 
-                          "theme", "icon", "colors", "summary", "narrative", 
-                          "discussion_questions", "age_tier"]
-        
-        for i, age_tier in enumerate(age_tiers):
-            test_name = f"story_endpoint_age_tier_{age_tier or 'default'}"
-            
-            try:
-                url = f"{API_BASE_URL}/story-of-the-week"
-                if age_tier:
-                    url += f"?age_tier={age_tier}"
+    async def test_get_story_progress_empty_state(self):
+        """Test 1: Get story progress for new child (empty state)"""
+        try:
+            url = f"{BASE_URL}/story-progress/new_child_999"
+            async with self.session.get(url) as response:
+                data = await response.json()
                 
-                async with self.session.get(url) as response:
-                    if response.status != 200:
-                        self.log_test(test_name, False, 
-                                    f"Expected 200, got {response.status}", 
-                                    {"status_code": response.status})
-                        continue
+                if response.status == 200:
+                    # Verify expected empty state structure
+                    expected_fields = ["total_read", "total_stories", "current_streak", "best_streak", 
+                                     "badges_earned", "total_badges", "badges", "recent_reads", "read_week_keys"]
                     
+                    missing_fields = [field for field in expected_fields if field not in data]
+                    if missing_fields:
+                        self.log_result("Get Story Progress (Empty State)", False, 
+                                      f"Missing fields: {missing_fields}")
+                        return
+                    
+                    # Verify empty state values
+                    checks = [
+                        (data["total_read"] == 0, "total_read should be 0"),
+                        (data["total_stories"] == 52, "total_stories should be 52"),
+                        (data["current_streak"] == 0, "current_streak should be 0"),
+                        (data["best_streak"] == 0, "best_streak should be 0"),
+                        (data["badges_earned"] == 0, "badges_earned should be 0"),
+                        (data["total_badges"] == 12, "total_badges should be 12"),
+                        (len(data["badges"]) == 12, "badges array should have 12 items"),
+                        (all(not badge["earned"] for badge in data["badges"]), "all badges should be earned: false"),
+                        (data["recent_reads"] == [], "recent_reads should be empty"),
+                        (data["read_week_keys"] == [], "read_week_keys should be empty")
+                    ]
+                    
+                    failed_checks = [msg for check, msg in checks if not check]
+                    if failed_checks:
+                        self.log_result("Get Story Progress (Empty State)", False, 
+                                      f"Failed checks: {'; '.join(failed_checks)}")
+                        return
+                    
+                    self.log_result("Get Story Progress (Empty State)", True, 
+                                  f"All fields correct. Total stories: {data['total_stories']}, badges: {data['total_badges']}")
+                else:
+                    self.log_result("Get Story Progress (Empty State)", False, 
+                                  f"HTTP {response.status}: {data}")
+                    
+        except Exception as e:
+            self.log_result("Get Story Progress (Empty State)", False, f"Exception: {str(e)}")
+    
+    async def test_mark_story_read_first_time(self):
+        """Test 2: Mark a story as read for the first time"""
+        try:
+            url = f"{BASE_URL}/story-progress/mark-read"
+            payload = {
+                "child_id": "test_progress_child",
+                "week_key": "2026-W08",
+                "story_title": "Creation",
+                "story_reference": "Genesis 1-2"
+            }
+            
+            async with self.session.post(url, json=payload) as response:
+                data = await response.json()
+                
+                if response.status == 200:
+                    # Verify response structure and values
+                    expected_fields = ["status", "total_read", "current_streak", "best_streak", 
+                                     "new_badges", "total_badges"]
+                    missing_fields = [field for field in expected_fields if field not in data]
+                    if missing_fields:
+                        self.log_result("Mark Story Read (First Time)", False, 
+                                      f"Missing fields: {missing_fields}")
+                        return
+                    
+                    checks = [
+                        (data["status"] == "marked", "status should be 'marked'"),
+                        (data["total_read"] == 1, "total_read should be 1"),
+                        (data["total_badges"] >= 1, "total_badges should be at least 1"),
+                        ("new_badges" in data, "new_badges field should be present")
+                    ]
+                    
+                    failed_checks = [msg for check, msg in checks if not check]
+                    if failed_checks:
+                        self.log_result("Mark Story Read (First Time)", False, 
+                                      f"Failed checks: {'; '.join(failed_checks)}")
+                        return
+                    
+                    # Check if "First Story" badge was earned
+                    first_story_earned = any(badge.get("name") == "First Story" for badge in data.get("new_badges", []))
+                    if first_story_earned:
+                        badge_detail = "First Story badge earned"
+                    else:
+                        badge_detail = f"New badges: {[b.get('name', 'unknown') for b in data.get('new_badges', [])]}"
+                    
+                    self.log_result("Mark Story Read (First Time)", True, 
+                                  f"Status: {data['status']}, total_read: {data['total_read']}, {badge_detail}")
+                else:
+                    self.log_result("Mark Story Read (First Time)", False, 
+                                  f"HTTP {response.status}: {data}")
+                    
+        except Exception as e:
+            self.log_result("Mark Story Read (First Time)", False, f"Exception: {str(e)}")
+    
+    async def test_duplicate_read_prevention(self):
+        """Test 3: Attempt to mark the same story as read again (should prevent duplicate)"""
+        try:
+            url = f"{BASE_URL}/story-progress/mark-read"
+            payload = {
+                "child_id": "test_progress_child",
+                "week_key": "2026-W08",
+                "story_title": "Creation",
+                "story_reference": "Genesis 1-2"
+            }
+            
+            async with self.session.post(url, json=payload) as response:
+                data = await response.json()
+                
+                if response.status == 200:
+                    if data.get("status") == "already_read":
+                        self.log_result("Duplicate Read Prevention", True, 
+                                      f"Correctly prevented duplicate: {data.get('message', 'No message')}")
+                    else:
+                        self.log_result("Duplicate Read Prevention", False, 
+                                      f"Expected 'already_read' status, got: {data.get('status')}")
+                else:
+                    self.log_result("Duplicate Read Prevention", False, 
+                                  f"HTTP {response.status}: {data}")
+                    
+        except Exception as e:
+            self.log_result("Duplicate Read Prevention", False, f"Exception: {str(e)}")
+    
+    async def test_mark_multiple_stories_and_verify_badges(self):
+        """Test 4: Mark multiple stories and verify badge progression"""
+        try:
+            stories = [
+                {
+                    "child_id": "test_progress_child",
+                    "week_key": "2026-W09",
+                    "story_title": "Noah's Ark",
+                    "story_reference": "Genesis 6-9"
+                },
+                {
+                    "child_id": "test_progress_child",
+                    "week_key": "2026-W10",
+                    "story_title": "Abraham",
+                    "story_reference": "Genesis 12"
+                }
+            ]
+            
+            url = f"{BASE_URL}/story-progress/mark-read"
+            total_marked = 1  # Already marked 1 story in previous test
+            
+            for i, story in enumerate(stories, 1):
+                async with self.session.post(url, json=story) as response:
                     data = await response.json()
                     
-                    # Verify all required fields are present
-                    missing_fields = [field for field in required_fields if field not in data]
-                    if missing_fields:
-                        self.log_test(test_name, False, 
-                                    f"Missing fields: {missing_fields}", 
-                                    {"missing_fields": missing_fields})
-                        continue
-                    
-                    # Verify specific field types and constraints
-                    issues = []
-                    
-                    # Verify narrative is a non-empty string
-                    if not isinstance(data.get("narrative"), str) or len(data["narrative"].strip()) == 0:
-                        issues.append("narrative is not a non-empty string")
-                    
-                    # Verify discussion_questions is a list with exactly 3 items
-                    discussion_questions = data.get("discussion_questions", [])
-                    if not isinstance(discussion_questions, list) or len(discussion_questions) != 3:
-                        issues.append(f"discussion_questions must be list with 3 items, got {len(discussion_questions)} items")
-                    
-                    # Verify characters is a non-empty list
-                    characters = data.get("characters", [])
-                    if not isinstance(characters, list) or len(characters) == 0:
-                        issues.append("characters must be non-empty list")
-                    
-                    # Verify colors is a list with 2 color strings
-                    colors = data.get("colors", [])
-                    if not isinstance(colors, list) or len(colors) != 2:
-                        issues.append(f"colors must be list with 2 items, got {len(colors)} items")
-                    
-                    # Verify week_number is an integer between 1-52
-                    week_number = data.get("week_number")
-                    if not isinstance(week_number, int) or not (1 <= week_number <= 52):
-                        issues.append(f"week_number must be integer 1-52, got {week_number}")
-                    
-                    # Verify age_tier
-                    expected_age_tier = age_tier or "7-9"  # Default should be 7-9
-                    if data.get("age_tier") != expected_age_tier:
-                        issues.append(f"age_tier mismatch: expected {expected_age_tier}, got {data.get('age_tier')}")
-                    
-                    if issues:
-                        self.log_test(test_name, False, 
-                                    f"Field validation issues: {'; '.join(issues)}", 
-                                    {"issues": issues, "response": data})
+                    if response.status == 200 and data.get("status") == "marked":
+                        total_marked += 1
+                        print(f"  📖 Marked story {total_marked}: {story['story_title']}")
                     else:
-                        # Success - store data for caching test
-                        if i == 0:  # First test (age_tier=7-9)
-                            self.first_response = data
-                        
-                        self.log_test(test_name, True, 
-                                    f"All fields valid for age tier {expected_age_tier}", 
-                                    {
-                                        "week_number": data["week_number"],
-                                        "title": data["title"],
-                                        "narrative_length": len(data["narrative"]),
-                                        "discussion_questions_count": len(discussion_questions),
-                                        "characters_count": len(characters)
-                                    })
-                        
-                        # Verify age-appropriate differences
-                        if age_tier == "4-6":
-                            # Should have simpler narrative for younger children
-                            pass  # This is subjective, but we can check it exists
-                        elif age_tier == "13-18":
-                            # Should have more sophisticated narrative for teens
-                            pass  # This is subjective, but we can check it exists
-                            
-            except Exception as e:
-                self.log_test(test_name, False, f"Exception: {str(e)}", {"error": str(e)})
-    
-    async def test_caching_behavior(self):
-        """Test 2: Verify caching behavior"""
-        print("\n🧪 Testing caching behavior...")
-        
-        try:
-            # Make first request and record timing
-            start_time = time.time()
-            async with self.session.get(f"{API_BASE_URL}/story-of-the-week?age_tier=7-9") as response1:
-                first_duration = time.time() - start_time
-                if response1.status != 200:
-                    self.log_test("caching_first_request", False, 
-                                f"First request failed with status {response1.status}")
-                    return
-                
-                first_data = await response1.json()
+                        self.log_result("Mark Multiple Stories", False, 
+                                      f"Failed to mark story {i}: {data}")
+                        return
             
-            # Make second request immediately and record timing
-            start_time = time.time()
-            async with self.session.get(f"{API_BASE_URL}/story-of-the-week?age_tier=7-9") as response2:
-                second_duration = time.time() - start_time
-                if response2.status != 200:
-                    self.log_test("caching_second_request", False, 
-                                f"Second request failed with status {response2.status}")
-                    return
-                
-                second_data = await response2.json()
-            
-            # Verify same week_key and narrative (should be identical from cache)
-            week_key_match = first_data.get("week_key") == second_data.get("week_key")
-            narrative_match = first_data.get("narrative") == second_data.get("narrative")
-            
-            if not week_key_match:
-                self.log_test("caching_verification", False, 
-                            "week_key mismatch between requests", 
-                            {
-                                "first_week_key": first_data.get("week_key"),
-                                "second_week_key": second_data.get("week_key")
-                            })
-                return
-            
-            if not narrative_match:
-                self.log_test("caching_verification", False, 
-                            "narrative mismatch between requests (not cached)", 
-                            {
-                                "first_narrative_length": len(first_data.get("narrative", "")),
-                                "second_narrative_length": len(second_data.get("narrative", ""))
-                            })
-                return
-            
-            # Second request should be faster (cached)
-            # Note: This might not always be true due to network variability, but we can log it
-            self.log_test("caching_verification", True, 
-                        "Caching verified - identical responses", 
-                        {
-                            "week_key": first_data.get("week_key"),
-                            "first_request_time": f"{first_duration:.3f}s",
-                            "second_request_time": f"{second_duration:.3f}s",
-                            "cached_faster": second_duration < first_duration
-                        })
-                        
-        except Exception as e:
-            self.log_test("caching_verification", False, f"Exception: {str(e)}", {"error": str(e)})
-    
-    async def test_health_endpoint(self):
-        """Test 3: /api/health endpoint still works"""
-        print("\n🧪 Testing /api/health endpoint...")
-        
-        try:
-            async with self.session.get(f"{API_BASE_URL}/health") as response:
-                if response.status != 200:
-                    self.log_test("health_endpoint", False, 
-                                f"Expected 200, got {response.status}")
-                    return
-                
+            # After marking 3 stories total, check progress
+            progress_url = f"{BASE_URL}/story-progress/test_progress_child"
+            async with self.session.get(progress_url) as response:
                 data = await response.json()
-                required_fields = ["status", "llm_configured", "tts_configured", "stt_configured", "knowledge_base_size"]
-                missing_fields = [field for field in required_fields if field not in data]
                 
-                if missing_fields:
-                    self.log_test("health_endpoint", False, 
-                                f"Missing fields: {missing_fields}", 
-                                {"response": data})
+                if response.status == 200:
+                    if data["total_read"] == 3:
+                        # Check if "Getting Started" badge (3 stories) was earned
+                        earned_badges = [badge["name"] for badge in data["badges"] if badge["earned"]]
+                        getting_started_earned = "Getting Started" in earned_badges
+                        
+                        if getting_started_earned:
+                            self.log_result("Mark Multiple Stories & Verify Badges", True, 
+                                          f"Total read: {data['total_read']}, Getting Started badge earned. All earned badges: {earned_badges}")
+                        else:
+                            self.log_result("Mark Multiple Stories & Verify Badges", False, 
+                                          f"Total read: {data['total_read']}, but Getting Started badge not earned. Earned badges: {earned_badges}")
+                    else:
+                        self.log_result("Mark Multiple Stories & Verify Badges", False, 
+                                      f"Expected total_read=3, got {data['total_read']}")
                 else:
-                    self.log_test("health_endpoint", True, 
-                                "Health endpoint working correctly", 
-                                {"response": data})
+                    self.log_result("Mark Multiple Stories & Verify Badges", False, 
+                                  f"Failed to get progress: HTTP {response.status}")
                     
         except Exception as e:
-            self.log_test("health_endpoint", False, f"Exception: {str(e)}", {"error": str(e)})
+            self.log_result("Mark Multiple Stories & Verify Badges", False, f"Exception: {str(e)}")
+    
+    async def test_streak_calculation(self):
+        """Test 5: Verify streak calculation with consecutive weeks"""
+        try:
+            # Mark story for consecutive week W11 (following W08, W09, W10)
+            url = f"{BASE_URL}/story-progress/mark-read"
+            payload = {
+                "child_id": "test_progress_child",
+                "week_key": "2026-W11",
+                "story_title": "Test Story",
+                "story_reference": "Test"
+            }
+            
+            async with self.session.post(url, json=payload) as response:
+                data = await response.json()
+                
+                if response.status == 200 and data.get("status") == "marked":
+                    print(f"  📖 Marked consecutive story for W11")
+                    
+                    # Get progress to check streak
+                    progress_url = f"{BASE_URL}/story-progress/test_progress_child"
+                    async with self.session.get(progress_url) as response2:
+                        progress_data = await response2.json()
+                        
+                        if response2.status == 200:
+                            current_streak = progress_data.get("current_streak", 0)
+                            best_streak = progress_data.get("best_streak", 0)
+                            earned_badges = [badge["name"] for badge in progress_data["badges"] if badge["earned"]]
+                            
+                            # W08, W09, W10, W11 should be consecutive (depends on streak algorithm)
+                            # Note: The algorithm considers consecutive weeks, so we should have a streak
+                            if current_streak > 0:
+                                # Check if "Week Warrior" badge (2+ streak) was earned
+                                week_warrior_earned = "Week Warrior" in earned_badges
+                                
+                                self.log_result("Streak Calculation", True, 
+                                              f"Current streak: {current_streak}, best: {best_streak}. Week Warrior earned: {week_warrior_earned}")
+                            else:
+                                self.log_result("Streak Calculation", False, 
+                                              f"Expected streak > 0 for consecutive weeks W08-W11, got current_streak: {current_streak}")
+                        else:
+                            self.log_result("Streak Calculation", False, 
+                                          f"Failed to get progress: HTTP {response2.status}")
+                else:
+                    self.log_result("Streak Calculation", False, 
+                                  f"Failed to mark consecutive story: {data}")
+                    
+        except Exception as e:
+            self.log_result("Streak Calculation", False, f"Exception: {str(e)}")
+    
+    async def test_get_full_progress(self):
+        """Test 6: Get full progress after marking multiple stories"""
+        try:
+            url = f"{BASE_URL}/story-progress/test_progress_child"
+            async with self.session.get(url) as response:
+                data = await response.json()
+                
+                if response.status == 200:
+                    # Verify all expected fields are present
+                    expected_fields = ["total_read", "total_stories", "current_streak", "best_streak", 
+                                     "badges_earned", "total_badges", "badges", "recent_reads", "read_week_keys"]
+                    missing_fields = [field for field in expected_fields if field not in data]
+                    if missing_fields:
+                        self.log_result("Get Full Progress", False, 
+                                      f"Missing fields: {missing_fields}")
+                        return
+                    
+                    # Verify expected values
+                    checks = [
+                        (data["total_read"] == 4, f"total_read should be 4, got {data['total_read']}"),
+                        (len(data["recent_reads"]) == 4, f"recent_reads should have 4 items, got {len(data['recent_reads'])}"),
+                        (len(data["read_week_keys"]) == 4, f"read_week_keys should have 4 entries, got {len(data['read_week_keys'])}"),
+                        (data["total_stories"] == 52, "total_stories should be 52"),
+                        (len(data["badges"]) == 12, "badges array should have 12 items"),
+                        (data["badges_earned"] > 0, "should have earned some badges")
+                    ]
+                    
+                    failed_checks = [msg for check, msg in checks if not check]
+                    if failed_checks:
+                        self.log_result("Get Full Progress", False, 
+                                      f"Failed checks: {'; '.join(failed_checks)}")
+                        return
+                    
+                    # Count earned badges
+                    earned_badges = [badge["name"] for badge in data["badges"] if badge["earned"]]
+                    week_keys = data["read_week_keys"]
+                    
+                    self.log_result("Get Full Progress", True, 
+                                  f"Total read: {data['total_read']}, streak: {data['current_streak']}, " +
+                                  f"earned badges: {len(earned_badges)} ({', '.join(earned_badges)}), " +
+                                  f"week keys: {week_keys}")
+                else:
+                    self.log_result("Get Full Progress", False, 
+                                  f"HTTP {response.status}: {data}")
+                    
+        except Exception as e:
+            self.log_result("Get Full Progress", False, f"Exception: {str(e)}")
     
     async def test_regression_endpoints(self):
-        """Test 4: Other existing endpoints still work (regression)"""
-        print("\n🧪 Testing existing endpoints for regression...")
-        
-        endpoints_to_test = [
-            ("verse_of_the_day", "/verse-of-the-day?age_tier=7-9"),
-            ("verse_challenge", "/verse-challenge?age_tier=7-9"),
-            ("voices", "/voices"),
-        ]
-        
-        for test_name, endpoint in endpoints_to_test:
-            try:
-                async with self.session.get(f"{API_BASE_URL}{endpoint}") as response:
-                    if response.status != 200:
-                        self.log_test(f"regression_{test_name}", False, 
-                                    f"Expected 200, got {response.status}")
-                        continue
-                    
-                    data = await response.json()
-                    
-                    # Basic validation that we got some data
-                    if not data or not isinstance(data, dict):
-                        self.log_test(f"regression_{test_name}", False, 
-                                    "Empty or invalid response data")
-                        continue
-                    
-                    # Endpoint-specific validation
-                    if test_name == "verse_of_the_day":
-                        required = ["date", "verse", "reference", "theme", "explanation"]
-                        missing = [f for f in required if f not in data]
-                        if missing:
-                            self.log_test(f"regression_{test_name}", False, 
-                                        f"Missing fields: {missing}")
-                            continue
-                    
-                    elif test_name == "verse_challenge":
-                        required = ["date", "reference", "theme", "difficulty", "display_text", "blank_count"]
-                        missing = [f for f in required if f not in data]
-                        if missing:
-                            self.log_test(f"regression_{test_name}", False, 
-                                        f"Missing fields: {missing}")
-                            continue
-                    
-                    elif test_name == "voices":
-                        if "voices" not in data or not isinstance(data["voices"], list):
-                            self.log_test(f"regression_{test_name}", False, 
-                                        "Invalid voices response structure")
-                            continue
-                    
-                    self.log_test(f"regression_{test_name}", True, 
-                                f"Endpoint working correctly", 
-                                {"endpoint": endpoint})
-                    
-            except Exception as e:
-                self.log_test(f"regression_{test_name}", False, 
-                            f"Exception: {str(e)}", {"error": str(e)})
+        """Test 7: Verify other endpoints still work (regression test)"""
+        try:
+            endpoints = [
+                ("/story-of-the-week?age_tier=7-9", "Story of the Week"),
+                ("/verse-of-the-day?age_tier=7-9", "Verse of the Day"),
+                ("/health", "Health Check")
+            ]
+            
+            all_passed = True
+            details = []
+            
+            for endpoint, name in endpoints:
+                url = f"{BASE_URL}{endpoint}"
+                async with self.session.get(url) as response:
+                    if response.status == 200:
+                        details.append(f"{name}: ✅")
+                    else:
+                        details.append(f"{name}: ❌ HTTP {response.status}")
+                        all_passed = False
+            
+            self.log_result("Regression Tests", all_passed, "; ".join(details))
+            
+        except Exception as e:
+            self.log_result("Regression Tests", False, f"Exception: {str(e)}")
     
-    async def run_all_tests(self):
-        """Run all tests in sequence"""
-        print("🚀 Starting Bible Story of the Week Backend API Testing")
-        print(f"📍 Testing against: {API_BASE_URL}")
-        print("=" * 70)
-        
-        await self.test_story_endpoint_with_age_tiers()
-        await self.test_caching_behavior()
-        await self.test_health_endpoint()
-        await self.test_regression_endpoints()
-        
-        # Print summary
-        print("\n" + "=" * 70)
-        print("📊 TEST SUMMARY")
-        print("=" * 70)
-        
-        total_tests = len(self.test_results)
-        passed_tests = sum(1 for result in self.test_results if result["success"])
+    async def test_cleanup_verification(self):
+        """Test 8: Verify test data state (no cleanup needed as per instructions)"""
+        try:
+            # This is just to verify the final state is consistent
+            url = f"{BASE_URL}/story-progress/test_progress_child"
+            async with self.session.get(url) as response:
+                data = await response.json()
+                
+                if response.status == 200:
+                    self.log_result("Cleanup Verification", True, 
+                                  f"Final state consistent - test data preserved as intended. " +
+                                  f"Child 'test_progress_child' has {data['total_read']} stories read.")
+                else:
+                    self.log_result("Cleanup Verification", False, 
+                                  f"HTTP {response.status}: {data}")
+                    
+        except Exception as e:
+            self.log_result("Cleanup Verification", False, f"Exception: {str(e)}")
+    
+    def print_summary(self):
+        """Print test summary"""
+        total_tests = len(self.results)
+        passed_tests = sum(1 for result in self.results if result["success"])
         failed_tests = total_tests - passed_tests
         
-        print(f"Total Tests: {total_tests}")
+        print(f"\n{'='*60}")
+        print(f"🎯 STORY PROGRESS TRACKER TEST SUMMARY")
+        print(f"{'='*60}")
+        print(f"📊 Total Tests: {total_tests}")
         print(f"✅ Passed: {passed_tests}")
         print(f"❌ Failed: {failed_tests}")
-        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        print(f"📈 Success Rate: {(passed_tests/total_tests*100):.1f}%")
         
         if failed_tests > 0:
-            print("\n🔍 FAILED TESTS:")
-            for result in self.test_results:
+            print(f"\n❌ FAILED TESTS:")
+            for result in self.results:
                 if not result["success"]:
-                    print(f"   • {result['test']}: {result['message']}")
+                    print(f"  • {result['test']}: {result['details']}")
         
-        print("\n📝 Detailed Results:")
-        for result in self.test_results:
-            status = "✅" if result["success"] else "❌"
-            print(f"   {status} {result['test']}: {result['message']}")
+        print(f"\n🎉 CONCLUSION: {'ALL TESTS PASSED!' if failed_tests == 0 else f'{failed_tests} TESTS FAILED'}")
+    
+    async def run_all_tests(self):
+        """Run all Story Progress Tracker tests"""
+        print("🚀 Starting Story Progress Tracker Backend Tests")
+        print(f"🌐 Testing against: {BASE_URL}")
+        print(f"⏰ Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("="*60)
         
-        return passed_tests, failed_tests
+        await self.create_session()
+        
+        try:
+            # Run tests in order
+            await self.test_get_story_progress_empty_state()
+            await self.test_mark_story_read_first_time()
+            await self.test_duplicate_read_prevention()
+            await self.test_mark_multiple_stories_and_verify_badges()
+            await self.test_streak_calculation()
+            await self.test_get_full_progress()
+            await self.test_regression_endpoints()
+            await self.test_cleanup_verification()
+            
+        finally:
+            await self.close_session()
+        
+        self.print_summary()
 
 async def main():
     """Main test execution"""
-    try:
-        async with BibleStoryTester() as tester:
-            passed, failed = await tester.run_all_tests()
-            
-            print(f"\n🏁 Testing Complete: {passed} passed, {failed} failed")
-            return failed == 0
-            
-    except Exception as e:
-        print(f"❌ Test execution failed: {e}")
-        return False
+    tester = StoryProgressTester()
+    await tester.run_all_tests()
 
 if __name__ == "__main__":
-    success = asyncio.run(main())
-    exit(0 if success else 1)
+    asyncio.run(main())

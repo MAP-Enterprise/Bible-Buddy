@@ -290,3 +290,165 @@ async def get_story_of_the_week(age_tier: str = "7-9"):
 
     await db.weekly_stories.insert_one({**result, "created_at": datetime.now(timezone.utc)})
     return result
+
+
+# ==================== STORY PROGRESS TRACKER ====================
+
+BADGE_DEFINITIONS = [
+    # Total stories read milestones
+    {"id": "first_story", "name": "First Story", "icon": "book-outline", "color": "#4ECDC4", "description": "Read your first Bible story!", "type": "total", "threshold": 1},
+    {"id": "getting_started", "name": "Getting Started", "icon": "library-outline", "color": "#6C5CE7", "description": "Read 3 Bible stories", "type": "total", "threshold": 3},
+    {"id": "story_explorer", "name": "Story Explorer", "icon": "compass-outline", "color": "#FF6B6B", "description": "Read 5 Bible stories", "type": "total", "threshold": 5},
+    {"id": "faithful_reader", "name": "Faithful Reader", "icon": "heart", "color": "#E056A0", "description": "Read 10 Bible stories", "type": "total", "threshold": 10},
+    {"id": "bible_scholar", "name": "Bible Scholar", "icon": "school", "color": "#FFD93D", "description": "Read 25 Bible stories", "type": "total", "threshold": 25},
+    {"id": "story_master", "name": "Story Master", "icon": "star", "color": "#FF8E53", "description": "Read all 52 Bible stories!", "type": "total", "threshold": 52},
+    # Streak milestones
+    {"id": "week_warrior", "name": "Week Warrior", "icon": "flash", "color": "#0984E3", "description": "2-week reading streak!", "type": "streak", "threshold": 2},
+    {"id": "steady_reader", "name": "Steady Reader", "icon": "timer", "color": "#00B894", "description": "4-week reading streak!", "type": "streak", "threshold": 4},
+    {"id": "devoted_family", "name": "Devoted Family", "icon": "people", "color": "#6C5CE7", "description": "8-week reading streak!", "type": "streak", "threshold": 8},
+    {"id": "unstoppable", "name": "Unstoppable", "icon": "rocket", "color": "#E17055", "description": "12-week reading streak!", "type": "streak", "threshold": 12},
+    {"id": "half_year_hero", "name": "Half Year Hero", "icon": "trophy", "color": "#FDCB6E", "description": "26-week reading streak!", "type": "streak", "threshold": 26},
+    {"id": "story_champion", "name": "Story Champion", "icon": "medal", "color": "#FF6348", "description": "Full year of stories!", "type": "streak", "threshold": 52},
+]
+
+
+class MarkReadRequest(BaseModel):
+    child_id: str
+    week_key: str
+    story_title: str
+    story_reference: str = ""
+
+
+def _compute_streak(week_keys: list) -> dict:
+    """Compute current and best reading streak from a list of week_keys like '2026-W11'"""
+    if not week_keys:
+        return {"current_streak": 0, "best_streak": 0}
+
+    # Parse week keys into (year, week) tuples and sort
+    parsed = []
+    for wk in week_keys:
+        try:
+            parts = wk.split("-W")
+            parsed.append((int(parts[0]), int(parts[1])))
+        except (ValueError, IndexError):
+            continue
+    parsed = sorted(set(parsed))
+    if not parsed:
+        return {"current_streak": 0, "best_streak": 0}
+
+    # Calculate streaks
+    best_streak = 1
+    current_run = 1
+    for i in range(1, len(parsed)):
+        prev_y, prev_w = parsed[i - 1]
+        cur_y, cur_w = parsed[i]
+        # Check if consecutive week
+        if (cur_y == prev_y and cur_w == prev_w + 1) or \
+           (cur_w == 1 and prev_w >= 52 and cur_y == prev_y + 1):
+            current_run += 1
+        else:
+            current_run = 1
+        best_streak = max(best_streak, current_run)
+
+    # Current streak: count backwards from the most recent entry
+    now = datetime.now(timezone.utc)
+    current_year, current_week, _ = now.isocalendar()
+    last_y, last_w = parsed[-1]
+
+    # Allow current week or last week to count as active
+    if (last_y, last_w) == (current_year, current_week) or \
+       (last_y, last_w) == (current_year, current_week - 1) or \
+       (current_week == 1 and last_w >= 52 and last_y == current_year - 1):
+        current_streak = 1
+        for i in range(len(parsed) - 2, -1, -1):
+            py, pw = parsed[i]
+            ny, nw = parsed[i + 1]
+            if (ny == py and nw == pw + 1) or (nw == 1 and pw >= 52 and ny == py + 1):
+                current_streak += 1
+            else:
+                break
+    else:
+        current_streak = 0
+
+    return {"current_streak": current_streak, "best_streak": best_streak}
+
+
+def _compute_badges(total_read: int, best_streak: int, current_streak: int) -> list:
+    """Determine which badges have been earned"""
+    earned = []
+    for badge in BADGE_DEFINITIONS:
+        if badge["type"] == "total" and total_read >= badge["threshold"]:
+            earned.append({**badge, "earned": True})
+        elif badge["type"] == "streak" and best_streak >= badge["threshold"]:
+            earned.append({**badge, "earned": True})
+    return earned
+
+
+@router.post("/story-progress/mark-read")
+async def mark_story_read(body: MarkReadRequest):
+    """Mark a story as read for a child"""
+    existing = await db.story_progress.find_one(
+        {"child_id": body.child_id, "week_key": body.week_key}, {"_id": 0}
+    )
+    if existing:
+        return {"status": "already_read", "message": "Story already marked as read!"}
+
+    await db.story_progress.insert_one({
+        "child_id": body.child_id,
+        "week_key": body.week_key,
+        "story_title": body.story_title,
+        "story_reference": body.story_reference,
+        "marked_at": datetime.now(timezone.utc),
+    })
+
+    # Compute updated progress
+    all_progress = await db.story_progress.find(
+        {"child_id": body.child_id}, {"_id": 0}
+    ).sort("marked_at", -1).to_list(100)
+
+    total_read = len(all_progress)
+    week_keys = [p["week_key"] for p in all_progress]
+    streaks = _compute_streak(week_keys)
+    badges = _compute_badges(total_read, streaks["best_streak"], streaks["current_streak"])
+    new_badges = [b for b in badges if b["threshold"] == total_read or b["threshold"] == streaks["best_streak"]]
+
+    return {
+        "status": "marked",
+        "message": "Great job reading this week's story!",
+        "total_read": total_read,
+        "current_streak": streaks["current_streak"],
+        "best_streak": streaks["best_streak"],
+        "new_badges": new_badges,
+        "total_badges": len(badges),
+    }
+
+
+@router.get("/story-progress/{child_id}")
+async def get_story_progress(child_id: str):
+    """Get complete reading progress for a child"""
+    all_progress = await db.story_progress.find(
+        {"child_id": child_id}, {"_id": 0}
+    ).sort("marked_at", -1).to_list(100)
+
+    total_read = len(all_progress)
+    week_keys = [p["week_key"] for p in all_progress]
+    streaks = _compute_streak(week_keys)
+    badges = _compute_badges(total_read, streaks["best_streak"], streaks["current_streak"])
+
+    # All badge definitions with earned status
+    all_badges = []
+    earned_ids = {b["id"] for b in badges}
+    for badge in BADGE_DEFINITIONS:
+        all_badges.append({**badge, "earned": badge["id"] in earned_ids})
+
+    return {
+        "total_read": total_read,
+        "total_stories": 52,
+        "current_streak": streaks["current_streak"],
+        "best_streak": streaks["best_streak"],
+        "badges_earned": len(badges),
+        "total_badges": len(BADGE_DEFINITIONS),
+        "badges": all_badges,
+        "recent_reads": all_progress[:10],
+        "read_week_keys": week_keys,
+    }
