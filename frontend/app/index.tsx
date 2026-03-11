@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Animated,
   StatusBar,
@@ -331,18 +332,21 @@ export default function HomeScreen() {
           {/* Features Grid */}
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
-              <TouchableOpacity
+              <Pressable
                 key={index}
-                style={[styles.featureCard, { backgroundColor: feature.bg }]}
+                style={({ pressed }) => [
+                  styles.featureCard,
+                  { backgroundColor: feature.bg, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] },
+                ]}
                 data-testid={`feature-${feature.label.toLowerCase()}`}
                 onPress={() => router.push(feature.route as any)}
-                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
               >
                 <View style={[styles.featureIcon, { backgroundColor: feature.color }]}>
                   <Ionicons name={feature.icon as any} size={24} color="#fff" />
                 </View>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: feature.color, textAlign: 'center' }}>{feature.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
@@ -455,7 +459,7 @@ const styles = StyleSheet.create({
   verseShareButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: 14, backgroundColor: 'rgba(255,217,61,0.12)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, gap: 6 },
   verseShareText: { fontSize: 13, fontWeight: '600', color: '#FFD93D' },
   featuresGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  featureCard: { width: '22%' as any, paddingVertical: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  featureCard: { width: '22%' as any, paddingVertical: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', minHeight: 80 },
   featureIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   primaryButton: { marginBottom: 12, borderRadius: 20, overflow: 'hidden', shadowColor: '#FF6B6B', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 8 },
   buttonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, paddingHorizontal: 24, gap: 12 },
