@@ -18,7 +18,8 @@ An interactive mobile application for children to ask questions about the Bible 
 ## Architecture
 - **Backend:** FastAPI, MongoDB, GPT-4o-mini (via Emergent LLM Key)
 - **Frontend:** Expo (React Native), TypeScript, expo-router
-- **Integrations:** OpenAI, ElevenLabs, Deepgram
+- **Integrations:** OpenAI, ElevenLabs, Deepgram, Resend (email), Expo Push Notifications
+- **Collections:** parents, children, chat_sessions, user_profiles, notification_settings, knowledge_base, teachers, safety_logs, daily_verses, age_adapted_kb_cache
 
 ## Completed Features
 - [x] Phase 1: Core AI conversation engine, safety filtering, knowledge base
@@ -27,19 +28,27 @@ An interactive mobile application for children to ask questions about the Bible 
 - [x] Teacher wisdom integration (natural, no name-dropping)
 - [x] Verse of the Day with age-appropriate explanations
 - [x] Performance optimization (text-first, audio-later, in-memory caching)
-- [x] **Full Authentication System** (register, login, JWT sessions) - Mar 2026
-- [x] **Multi-child Profile Management** (one parent, multiple children) - Mar 2026
-- [x] **Connected Parent Dashboard** (real stats, conversation history, child selector) - Mar 2026
-- [x] **Auth-aware UI** (sign-in/sign-up screens, auth guards, personalized home) - Mar 2026
+- [x] Full Authentication System (register, login, JWT sessions) - Mar 2026
+- [x] Multi-child Profile Management (one parent, multiple children) - Mar 2026
+- [x] Connected Parent Dashboard (real stats, conversation history, child selector) - Mar 2026
+- [x] Auth-aware UI (sign-in/sign-up screens, auth guards, personalized home) - Mar 2026
+- [x] **Push Notifications** (Expo Push API, configurable per parent) - Mar 2026
+- [x] **Weekly Summary Emails** (Resend, Sunday evening, HTML template) - Mar 2026
+- [x] **Notification Settings Dashboard** (3 configurable toggles + test email button) - Mar 2026
 
 ## Current State (Mar 2026)
-The app is fully functional with authentication, multi-child support, and a connected parent dashboard. The auth system uses session tokens stored in secure storage, with JWT-protected API endpoints for user and child data.
+The app is fully functional with authentication, multi-child support, connected parent dashboard, push notifications, and weekly summary emails. Notification settings are configurable via the parent dashboard.
 
-## Key Technical Decisions
-- Session tokens (not JWTs) for simple, revocable auth
-- `expo-secure-store` on native, `localStorage` on web for cross-platform storage
-- File-based audio serving (MP3 files from `/app/backend/audio_cache/`)
-- Text-first, audio-later response pattern for low latency
+## Key Files
+- `/app/backend/server.py` - Main backend (chat, auth, dashboard, voice)
+- `/app/backend/routes/notifications.py` - Push notification routes and logic
+- `/app/backend/routes/emails.py` - Weekly email summary routes (Resend)
+- `/app/frontend/hooks/useAuth.ts` - Auth hook with token management
+- `/app/frontend/contexts/AuthContext.tsx` - Auth context provider
+- `/app/frontend/helpers/notifications.ts` - Push token registration helper
+- `/app/frontend/app/sign-in.tsx` - Sign in screen
+- `/app/frontend/app/sign-up.tsx` - Sign up screen
+- `/app/frontend/app/parent-dashboard.tsx` - Dashboard with settings
 
 ## P0 (Next Priority)
 - Pre-warm ALL KB age-adapted answers at startup (all 4 tiers)
@@ -48,6 +57,7 @@ The app is fully functional with authentication, multi-child support, and a conn
 ## P1 (Upcoming)
 - COPPA-compliant parental consent flow
 - Refactor server.py into modular FastAPI routers
+- Verify a custom domain in Resend for production emails
 
 ## P2 (Future)
 - True streaming responses (SSE word-by-word)
