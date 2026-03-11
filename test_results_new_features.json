@@ -1,0 +1,240 @@
+[
+  {
+    "test": "Verse of Day (7-9)",
+    "status": "PASS",
+    "details": "All required fields present. Theme: Courage, Reference: Psalm 27:1",
+    "timestamp": "2026-03-11T20:40:07.101186",
+    "response_data": {
+      "date": "2026-03-11",
+      "verse": "The Lord is the stronghold of my life \u2014 of whom shall I be afraid?",
+      "reference": "Psalm 27:1",
+      "theme": "Courage",
+      "age_tier": "7-9",
+      "explanation": "This verse is like saying God is our super strong castle that keeps us safe. When God is with us, we don\u2019t need to be scared of anything because He protects us. Just like you feel safe with a loving grown-up, God makes sure we\u2019re cared for and loved too!",
+      "created_at": "2026-03-11T20:34:29.975000"
+    }
+  },
+  {
+    "test": "Verse of Day (4-6)",
+    "status": "PASS",
+    "details": "Age-adapted explanation for 4-6. Theme: Courage",
+    "timestamp": "2026-03-11T20:40:07.160922",
+    "response_data": {
+      "date": "2026-03-11",
+      "verse": "The Lord is the stronghold of my life \u2014 of whom shall I be afraid?",
+      "reference": "Psalm 27:1",
+      "theme": "Courage",
+      "age_tier": "4-6",
+      "explanation": "This verse means that God is like a super strong, cuddly fortress that keeps us safe. So, with Him by our side, there's no need to feel scared of anything. Remember, God is always there to protect and love you!",
+      "created_at": "2026-03-11T20:38:47.569000"
+    }
+  },
+  {
+    "test": "Verse of Day (13-18)",
+    "status": "PASS",
+    "details": "Age-adapted explanation for teens. Theme: Courage",
+    "timestamp": "2026-03-11T20:40:07.213787",
+    "response_data": {
+      "date": "2026-03-11",
+      "verse": "The Lord is the stronghold of my life \u2014 of whom shall I be afraid?",
+      "reference": "Psalm 27:1",
+      "theme": "Courage",
+      "age_tier": "13-18",
+      "explanation": "Hey there! This verse is like saying God is your safe place and protector, like a fortress that keeps you secure. When God's got your back, there's no need to worry about anything or anyone because He\u2019s with you and you\u2019re never alone. So, stay calm and confident knowing you have the best support ever!",
+      "created_at": "2026-03-11T20:38:51.233000"
+    }
+  },
+  {
+    "test": "March Theme Check",
+    "status": "PASS",
+    "details": "March 11 theme: Courage (matches expected March themes)",
+    "timestamp": "2026-03-11T20:40:07.213811",
+    "response_data": null
+  },
+  {
+    "test": "Verse Caching",
+    "status": "PASS",
+    "details": "Second call: 0.057s, identical response: True",
+    "timestamp": "2026-03-11T20:40:07.271032",
+    "response_data": null
+  },
+  {
+    "test": "KB Age Pre-warm (4-6)",
+    "status": "PASS",
+    "details": "Instant KB response (0.081s), avg word length: 3.9, from_knowledge_base: True",
+    "timestamp": "2026-03-11T20:40:07.352242",
+    "response_data": {
+      "response_snippet": "Wow! Jesus is God's special Son! He came to show us love and help us. Guess what? He did amazing thi..."
+    }
+  },
+  {
+    "test": "KB Age Pre-warm (7-9)",
+    "status": "PASS",
+    "details": "Instant KB response (2.200s), avg word length: 3.8, from_knowledge_base: True",
+    "timestamp": "2026-03-11T20:40:09.552787",
+    "response_data": {
+      "response_snippet": "Jesus is God's Son who came to our world to show us how much God loves us and to help us. He did ama..."
+    }
+  },
+  {
+    "test": "KB Age Pre-warm (10-12)",
+    "status": "PASS",
+    "details": "Instant KB response (0.110s), avg word length: 4.5, from_knowledge_base: True",
+    "timestamp": "2026-03-11T20:40:09.662772",
+    "response_data": {
+      "response_snippet": "Jesus is God's Son, and He came to Earth to teach us about God's amazing love and to save us from ou..."
+    }
+  },
+  {
+    "test": "KB Age Pre-warm (13-18)",
+    "status": "PASS",
+    "details": "Instant KB response (0.078s), avg word length: 4.4, from_knowledge_base: True",
+    "timestamp": "2026-03-11T20:40:09.740882",
+    "response_data": {
+      "response_snippet": "Jesus is the Son of God who came to our world to reveal the depth of God's love and provide a way fo..."
+    }
+  },
+  {
+    "test": "User Login",
+    "status": "PASS",
+    "details": "Logged in existing user: Persistence Test",
+    "timestamp": "2026-03-11T20:40:11.578052",
+    "response_data": {
+      "user_id": "parent_f028df5321ff",
+      "name": "Persistence Test",
+      "email": "persistence_test@test.com",
+      "token": "st_f4edf1835def469f8fbc93ef174d05a7"
+    }
+  },
+  {
+    "test": "Child Creation",
+    "status": "PASS",
+    "details": "Created child: PersistKid, ID: child_91aae30bc858",
+    "timestamp": "2026-03-11T20:40:11.638715",
+    "response_data": {
+      "child_id": "child_91aae30bc858",
+      "parent_id": "parent_f028df5321ff",
+      "name": "PersistKid",
+      "age_tier": "7-9",
+      "avatar": null,
+      "preferred_translation": "NIV",
+      "voice_id": "EXAVITQu4vr4xnSDxMaL",
+      "parental_consent_given": false,
+      "consent_timestamp": null,
+      "created_at": "2026-03-11T20:40:11.618000"
+    }
+  },
+  {
+    "test": "Chat Message 1",
+    "status": "PASS",
+    "details": "Message sent, session: c5ed82ea-dcae-406a-9318-6b7d49d01b07, response length: 228",
+    "timestamp": "2026-03-11T20:40:12.947540",
+    "response_data": {
+      "message": "Who made the world?",
+      "response_snippet": "God created everything in our world! The first ver..."
+    }
+  },
+  {
+    "test": "Chat Message 2",
+    "status": "PASS",
+    "details": "Message sent, session: c5ed82ea-dcae-406a-9318-6b7d49d01b07, response length: 1153",
+    "timestamp": "2026-03-11T20:40:34.067418",
+    "response_data": {
+      "message": "Tell me more about Adam",
+      "response_snippet": "Sure! Adam is the very first person that God creat..."
+    }
+  },
+  {
+    "test": "Chat Message 3",
+    "status": "PASS",
+    "details": "Message sent, session: c5ed82ea-dcae-406a-9318-6b7d49d01b07, response length: 641",
+    "timestamp": "2026-03-11T20:40:47.154572",
+    "response_data": {
+      "message": "Who was Eve?",
+      "response_snippet": "Eve was the first woman created by God, and she ha..."
+    }
+  },
+  {
+    "test": "Conversation History",
+    "status": "PARTIAL",
+    "details": "Found 0 messages, expected 6",
+    "timestamp": "2026-03-11T20:40:47.242540",
+    "response_data": {
+      "conversations": [
+        {
+          "id": "c5ed82ea-dcae-406a-9318-6b7d49d01b07",
+          "child_id": "child_91aae30bc858",
+          "parent_id": "parent_f028df5321ff",
+          "age_tier": "7-9",
+          "messages": [
+            {
+              "id": "5fff4d7e-32f3-458f-8c9f-2bb78446594a",
+              "role": "user",
+              "content": "Who made the world?",
+              "timestamp": "2026-03-11T20:40:12.922130+00:00"
+            },
+            {
+              "id": "08fdb707-649e-496f-bc31-f31588950fa0",
+              "role": "assistant",
+              "content": "God created everything in our world! The first verse in the Bible tells us, \"In the beginning, God created the heavens and the earth\" (Genesis 1:1). He made the sun, moon, stars, oceans, animals, and you too! Isn't that amazing?",
+              "audio_url": null,
+              "timestamp": "2026-03-11T20:40:12.922144+00:00"
+            },
+            {
+              "id": "dcc91e29-35da-4cef-bc0b-ebccbfedff9d",
+              "role": "user",
+              "content": "Tell me more about Adam",
+              "timestamp": "2026-03-11T20:40:32.164384+00:00"
+            },
+            {
+              "id": "4e8e8011-aef1-49b1-a11b-1a90aee04cbb",
+              "role": "assistant",
+              "content": "Sure! Adam is the very first person that God created, and his story is in the Book of Genesis, especially in Genesis 1 and 2. God made Adam from dust and breathed life into him (Genesis 2:7). That shows how special he is because God gave him life!\n\nGod put Adam in the Garden of Eden, a beautiful place full of trees and animals. Adam had a special job: to take care of the garden and name all the animals (Genesis 2:15-20). But God saw that Adam was lonely, so He created Eve, a woman, to be Adam's helper and companion (Genesis 2:18). \n\nGod told them they could eat from any tree in the garden except one. This is where things went wrong. Adam and Eve disobeyed God and ate the fruit from that one tree, which brought sin into the world (Genesis 3:6). This means they separated themselves from God, and because of sin, we all need Jesus to bring us back to God later!\n\nAdam\u2019s story teaches us about God\u2019s love in creating us, His desire for us to be in relationship with Him, and the importance of listening to God\u2019s commandments. Remember, even when we mess up, God loves us and wants to have a relationship with us through Jesus! Isn't that amazing?",
+              "audio_url": null,
+              "timestamp": "2026-03-11T20:40:32.164398+00:00"
+            },
+            {
+              "id": "3a60cd30-3c2d-47d8-a3df-17b9f32f95ea",
+              "role": "user",
+              "content": "Who was Eve?",
+              "timestamp": "2026-03-11T20:40:45.951027+00:00"
+            },
+            {
+              "id": "a062faa6-e462-47f3-956c-213316112cb7",
+              "role": "assistant",
+              "content": "Eve was the first woman created by God, and she has a very special place in the Bible! God made her from a rib taken from Adam, the first man, to be his companion (Genesis 2:21-22). She lived in the beautiful Garden of Eden, where she enjoyed a close relationship with God. \n\nHowever, Eve also made a choice to disobey God by eating the forbidden fruit, which led to sin entering the world (Genesis 3:6). This shows us how important it is to listen to God and make wise choices! Even though things went wrong, God's plan for redemption through Jesus still shines through in the Bible. Isn\u2019t it amazing how God is always working for our good?",
+              "audio_url": null,
+              "timestamp": "2026-03-11T20:40:45.951041+00:00"
+            }
+          ],
+          "created_at": "2026-03-11T20:40:12.921000",
+          "updated_at": "2026-03-11T20:40:45.951000"
+        }
+      ]
+    }
+  },
+  {
+    "test": "Conversation Detail",
+    "status": "PASS",
+    "details": "Retrieved 6 messages, all with timestamps: True",
+    "timestamp": "2026-03-11T20:40:47.316893",
+    "response_data": {
+      "message_count": 6,
+      "has_timestamps": true
+    }
+  },
+  {
+    "test": "Dashboard Stats",
+    "status": "PASS",
+    "details": "Stats: 1 conversations, 6 messages",
+    "timestamp": "2026-03-11T20:40:47.375090",
+    "response_data": {
+      "child_id": "child_91aae30bc858",
+      "child_name": "PersistKid",
+      "total_conversations": 1,
+      "total_messages": 6,
+      "most_asked_topics": [],
+      "last_active": "2026-03-11T20:40:45.951000"
+    }
+  }
+]

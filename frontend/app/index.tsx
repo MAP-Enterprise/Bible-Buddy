@@ -55,8 +55,7 @@ export default function HomeScreen() {
 
   const fetchVerseOfTheDay = async () => {
     try {
-      const savedTier = await storage.getItem('ageTier');
-      const ageTier = savedTier || '7-9';
+      const ageTier = activeChild?.age_tier || (await storage.getItem('ageTier')) || '7-9';
       const res = await fetch(`${BACKEND_URL}/api/verse-of-the-day?age_tier=${ageTier}`);
       if (res.ok) {
         const data = await res.json();
