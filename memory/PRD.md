@@ -32,11 +32,12 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 - 365-day Verse of the Day system
 - Verse Memory Challenge (fill-in-the-blank game)
 - Family Leaderboard
-- **Bible Story of the Week** (52 stories, AI-generated narratives, discussion questions)
-- **Story Progress Tracker** (mark stories read, 12 achievement badges, reading streaks, progress bar, parent dashboard integration)
+- Bible Story of the Week (52 stories, AI-generated narratives, discussion questions)
+- Story Progress Tracker (mark stories read, 12 achievement badges, reading streaks, progress bar)
+- **Family Reading Night Reminder** (weekly push notification, configurable day/time, story preview, home screen banner)
 
 ### Parent Features (Complete)
-- Parent Dashboard (manage children, view stats, configure notifications, reading progress)
+- Parent Dashboard (manage children, view stats, notifications, reading progress, reading night settings)
 - COPPA-compliant parental consent flow
 - Challenge statistics per child
 - Notification system (push + email via Resend)
@@ -45,6 +46,7 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 ### Architecture (Complete)
 - Backend refactored from monolithic server.py to modular APIRouter files
 - KB pre-warming at startup for instant responses
+- Hourly reading night reminder scheduler
 
 ## Key API Endpoints
 - `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`
@@ -52,6 +54,7 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 - `GET /api/verse-of-the-day`, `GET /api/verse-challenge`, `POST /api/verse-challenge/submit`
 - `GET /api/story-of-the-week`
 - `POST /api/story-progress/mark-read`, `GET /api/story-progress/{child_id}`
+- `GET /api/notifications/reading-night`, `PUT /api/notifications/reading-night`, `GET /api/notifications/reading-night-preview`
 - `GET /api/family-leaderboard`
 - `GET /api/children/{parent_id}`, `POST /api/children`, `POST /api/children/consent`
 - `GET /api/voices`, `POST /api/voices/preview`
@@ -62,13 +65,8 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 - `sessions` (chat), `user_profiles`, `safety_logs`
 - `daily_verses`, `kb_age_cache`, `age_adapted_kb_cache`
 - `verse_challenges`, `weekly_stories`, `story_progress`
+- `notification_settings` (includes reading_night_enabled, reading_night_day, reading_night_hour)
 - `knowledge_base`, `teachers`
-
-## Badge System (Story Progress Tracker)
-### Total Read Milestones
-- First Story (1), Getting Started (3), Story Explorer (5), Faithful Reader (10), Bible Scholar (25), Story Master (52)
-### Streak Milestones
-- Week Warrior (2w), Steady Reader (4w), Devoted Family (8w), Unstoppable (12w), Half Year Hero (26w), Story Champion (52w)
 
 ## Prioritized Backlog
 
@@ -76,7 +74,7 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 - Comprehensive testing across all major flows
 
 ### P1 - Implement True Streaming
-- Upgrade AI responses to word-by-word streaming via SSE
+- Upgrade AI chat responses to word-by-word streaming via SSE
 
 ### P2 - Refine Parent Dashboard UI
 - Break down large components into smaller sub-components
@@ -87,7 +85,7 @@ Build a mobile application called "Bible Buddy" — an interactive app for child
 ## File Structure
 ```
 /app/backend/
-├── server.py (orchestrator)
+├── server.py (orchestrator + schedulers)
 ├── bible_stories.py (52 weekly stories)
 ├── bible_verses.py (365 daily verses)
 ├── routes/ (auth, children, dashboard, emails, kb, notifications, sessions, teachers, verses)
