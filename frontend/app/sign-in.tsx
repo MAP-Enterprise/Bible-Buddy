@@ -36,8 +36,9 @@ export default function SignInScreen() {
     setIsLoading(false);
     if (!result.success) {
       setError(result.error || 'Login failed');
+    } else {
+      router.replace('/');
     }
-    // Auth context will trigger navigation via layout
   };
 
   return (

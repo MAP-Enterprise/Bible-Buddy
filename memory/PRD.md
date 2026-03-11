@@ -1,58 +1,55 @@
 # Bible Buddy - Product Requirements Document
 
 ## Original Problem Statement
-Build a mobile application called "Bible Buddy" — an interactive app for children to ask questions about the Bible and receive safe, age-appropriate answers with voice interaction.
+An interactive mobile application for children to ask questions about the Bible and receive safe, age-appropriate answers, featuring both text and voice-based interaction.
+
+## User Personas
+- **Children (4-18):** Primary users who interact with Bible Buddy to ask faith-based questions
+- **Parents:** Manage child profiles, monitor conversations, and set safety preferences
+
+## Core Requirements
+- Age-appropriate AI responses (4 tiers: 4-6, 7-9, 10-12, 13-18)
+- Voice input (STT via Deepgram) and voice output (TTS via ElevenLabs)
+- Safety/content filtering layer
+- Knowledge base for instant answers (56 questions)
+- Adaptive AI coaching with user profile tracking
+- Teacher wisdom integration (Selman, Ike, Furtick, Shirer)
 
 ## Architecture
-- **Backend:** FastAPI + MongoDB + OpenAI (gpt-4o-mini via Emergent LLM Key) + ElevenLabs TTS + Deepgram STT
-- **Frontend:** Expo React Native (web + native) with expo-router
-- **Storage:** expo-secure-store (native) / localStorage (web)
-- **Audio:** expo-av with HTTP-served MP3 files (not base64)
+- **Backend:** FastAPI, MongoDB, GPT-4o-mini (via Emergent LLM Key)
+- **Frontend:** Expo (React Native), TypeScript, expo-router
+- **Integrations:** OpenAI, ElevenLabs, Deepgram
 
-## What's Implemented
+## Completed Features
+- [x] Phase 1: Core AI conversation engine, safety filtering, knowledge base
+- [x] Phase 2: Voice I/O (STT + TTS), polished chat UI, onboarding
+- [x] Adaptive AI coaching with user profiles (fears, strengths, topics)
+- [x] Teacher wisdom integration (natural, no name-dropping)
+- [x] Verse of the Day with age-appropriate explanations
+- [x] Performance optimization (text-first, audio-later, in-memory caching)
+- [x] **Full Authentication System** (register, login, JWT sessions) - Mar 2026
+- [x] **Multi-child Profile Management** (one parent, multiple children) - Mar 2026
+- [x] **Connected Parent Dashboard** (real stats, conversation history, child selector) - Mar 2026
+- [x] **Auth-aware UI** (sign-in/sign-up screens, auth guards, personalized home) - Mar 2026
 
-### Core Features ✅
-- AI chat with safety filtering and age-tier prompts (4-6, 7-9, 10-12, 13-18)
-- Knowledge base: 56 instant answers with pre-cached ElevenLabs audio
-- Featured teachers: Apostle Selman, Stephanie Ike, Steven Furtick, Priscilla Shirer
-- Daily Verse of the Day with AI explanations
-- Multi-screen app: Home, Onboarding, Chat, Parent Dashboard
-- Cross-platform storage (expo-secure-store for native, localStorage for web)
+## Current State (Mar 2026)
+The app is fully functional with authentication, multi-child support, and a connected parent dashboard. The auth system uses session tokens stored in secure storage, with JWT-protected API endpoints for user and child data.
 
-### Voice/Audio ✅
-- ElevenLabs TTS: audio saved as MP3 files on disk, served via HTTP URL
-- 56 KB answers pre-cached at startup (~0ms audio playback)
-- Background TTS generation for AI responses (text returns immediately)
-- 3-tier fallback: ElevenLabs → Backend TTS → Device speech synthesis
-- Visual feedback: "Bible Buddy is speaking..." bar + Stop button
+## Key Technical Decisions
+- Session tokens (not JWTs) for simple, revocable auth
+- `expo-secure-store` on native, `localStorage` on web for cross-platform storage
+- File-based audio serving (MP3 files from `/app/backend/audio_cache/`)
+- Text-first, audio-later response pattern for low latency
 
-### Performance Optimizations ✅
-- KB answers: ~200ms (instant text + pre-cached audio)
-- AI answers: ~200ms text response (gpt-4o-mini), audio follows in background
-- Concise system prompt for faster LLM inference
-- Audio file caching with content-based hashing
-- Background TTS generation (never blocks text response)
+## P0 (Next Priority)
+- Pre-warm ALL KB age-adapted answers at startup (all 4 tiers)
+- Persistent conversation history (save all messages to DB)
 
-## API Endpoints
-- `POST /api/chat` — Main chat (text returns instantly, audio in background)
-- `GET /api/audio/{filename}` — Serve cached MP3 audio files
-- `GET /api/audio-status/{session_id}` — Poll audio generation status
-- `POST /api/tts` — Direct TTS generation
-- `GET /api/verse-of-the-day` — Daily Bible verse
-- `GET /api/teachers` — Featured teachers
-- `GET /api/knowledge-base` — All KB questions
-
-## Prioritized Backlog
-
-### P1
-- Wire STT frontend (mic button → Deepgram backend)
-- Full authentication (parent accounts, child profiles)
-- Connect Parent Dashboard to real backend data
-
-### P2
+## P1 (Upcoming)
 - COPPA-compliant parental consent flow
-- Persistent conversation history
+- Refactor server.py into modular FastAPI routers
 
-### P3
+## P2 (Future)
+- True streaming responses (SSE word-by-word)
 - Full QA on iOS/Android native
 - Production deployment

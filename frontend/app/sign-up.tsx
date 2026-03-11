@@ -41,8 +41,9 @@ export default function SignUpScreen() {
     setIsLoading(false);
     if (!result.success) {
       setError(result.error || 'Registration failed');
+    } else {
+      router.replace('/onboarding');
     }
-    // Auth context will trigger navigation via layout
   };
 
   return (
