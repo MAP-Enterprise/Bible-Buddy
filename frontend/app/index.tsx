@@ -12,6 +12,7 @@ import {
   Share,
   ActivityIndicator,
 } from 'react-native';
+import { TouchableOpacity as GHTouchable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -195,7 +196,7 @@ export default function HomeScreen() {
         </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Animated.View style={{ opacity: fadeAnim }}>
           {/* Welcome Card */}
           <View style={styles.welcomeCard} data-testid="welcome-card">
@@ -332,21 +333,21 @@ export default function HomeScreen() {
           {/* Features Grid */}
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
-              <Pressable
+              <GHTouchable
                 key={index}
-                style={({ pressed }) => [
-                  styles.featureCard,
-                  { backgroundColor: feature.bg, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] },
-                ]}
-                data-testid={`feature-${feature.label.toLowerCase()}`}
-                onPress={() => router.push(feature.route as any)}
-                hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
+                style={[styles.featureCard, { backgroundColor: feature.bg }]}
+                testID={`feature-${feature.label.toLowerCase()}`}
+                onPress={() => {
+                  console.log(`Feature ${feature.label} tapped, navigating to ${feature.route}`);
+                  router.push(feature.route as any);
+                }}
+                activeOpacity={0.7}
               >
                 <View style={[styles.featureIcon, { backgroundColor: feature.color }]}>
                   <Ionicons name={feature.icon as any} size={24} color="#fff" />
                 </View>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: feature.color, textAlign: 'center' }}>{feature.label}</Text>
-              </Pressable>
+              </GHTouchable>
             ))}
           </View>
 
