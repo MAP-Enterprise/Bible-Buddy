@@ -101,13 +101,6 @@ export default function HomeScreen() {
     { icon: 'shield-checkmark', color: '#6C5CE7', bg: '#EDE9FE', label: 'Safe' },
   ];
 
-  const teachers = [
-    { name: 'Apostle Selman', color: '#FF6B6B', emoji: '\ud83c\udfa4' },
-    { name: 'Stephanie Ike', color: '#4ECDC4', emoji: '\ud83d\udc9c' },
-    { name: 'Steven Furtick', color: '#FFD93D', emoji: '\ud83d\udd25' },
-    { name: 'Priscilla Shirer', color: '#6C5CE7', emoji: '\u2694\ufe0f' },
-  ];
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -268,19 +261,6 @@ export default function HomeScreen() {
             </>
           )}
 
-          {/* Teachers Section */}
-          <View style={styles.teachersSection}>
-            <Text style={styles.sectionTitle}>Wisdom from Amazing Teachers</Text>
-            <View style={styles.teachersGrid}>
-              {teachers.map((teacher, index) => (
-                <View key={index} style={styles.teacherChip}>
-                  <Text style={styles.teacherEmoji}>{teacher.emoji}</Text>
-                  <Text style={styles.teacherName}>{teacher.name}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
           <View style={{ height: 30 }} />
         </Animated.View>
       </ScrollView>
@@ -325,10 +305,4 @@ const styles = StyleSheet.create({
   dashboardButtonText: { color: '#6C5CE7', fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8, marginBottom: 20 },
   logoutText: { fontSize: 15, color: '#FF6B6B', fontWeight: '600' },
-  teachersSection: { backgroundColor: '#fff', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#2D3436', marginBottom: 16, textAlign: 'center' },
-  teachersGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 },
-  teacherChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, gap: 6 },
-  teacherEmoji: { fontSize: 16 },
-  teacherName: { fontSize: 13, fontWeight: '600', color: '#636E72' },
 });
