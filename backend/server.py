@@ -993,6 +993,72 @@ async def health_check():
 
 # ==================== AUTHENTICATION ENDPOINTS ====================
 
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@api_router.post("/auth/register")
+async def register_parent(req: RegisterRequest, response: Response):
+    """Register a new parent account with email/password"""
+    existing = await db.parents.find_one({"email": req.email.lower()}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    import bcrypt
+    password_hash = bcrypt.hashpw(req.password.encode(), bcrypt.gensalt()).decode()
+    
+    user_id = f"parent_{uuid.uuid4().hex[:12]}"
+    parent = {
+        "user_id": user_id,
+        "email": req.email.lower(),
+        "name": req.name,
+        "password_hash": password_hash,
+        "picture": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.parents.insert_one(parent)
+    
+    # Create session
+    session_token = f"st_{uuid.uuid4().hex}"
+    await db.user_sessions.insert_one({
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"user_id": user_id, "name": req.name, "email": req.email.lower(), "token": session_token}
+
+@api_router.post("/auth/login")
+async def login_parent(req: LoginRequest, response: Response):
+    """Login with email/password"""
+    import bcrypt
+    parent = await db.parents.find_one({"email": req.email.lower()}, {"_id": 0})
+    if not parent:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if not parent.get("password_hash"):
+        raise HTTPException(status_code=401, detail="Account uses social login")
+    
+    if not bcrypt.checkpw(req.password.encode(), parent["password_hash"].encode()):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Create session
+    session_token = f"st_{uuid.uuid4().hex}"
+    await db.user_sessions.insert_one({
+        "user_id": parent["user_id"],
+        "session_token": session_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"user_id": parent["user_id"], "name": parent["name"], "email": parent["email"], "token": session_token}
+
 @api_router.get("/auth/session")
 async def exchange_session(session_id: str, response: Response):
     """Exchange Emergent session_id for user data"""
