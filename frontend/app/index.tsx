@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Pressable,
   StyleSheet,
   Animated,
   StatusBar,
@@ -11,8 +10,8 @@ import {
   Platform,
   Share,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { TouchableOpacity as GHTouchable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -332,23 +331,49 @@ export default function HomeScreen() {
 
           {/* Features Grid */}
           <View style={styles.featuresGrid}>
-            {features.map((feature, index) => (
-              <GHTouchable
-                key={index}
-                style={[styles.featureCard, { backgroundColor: feature.bg }]}
-                testID={`feature-${feature.label.toLowerCase()}`}
-                onPress={() => {
-                  console.log(`Feature ${feature.label} tapped, navigating to ${feature.route}`);
-                  router.push(feature.route as any);
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.featureIcon, { backgroundColor: feature.color }]}>
-                  <Ionicons name={feature.icon as any} size={24} color="#fff" />
-                </View>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: feature.color, textAlign: 'center' }}>{feature.label}</Text>
-              </GHTouchable>
-            ))}
+            <TouchableOpacity
+              style={[styles.featureCard, { backgroundColor: '#FFE8E8' }]}
+              onPress={() => Alert.alert('Chat', 'Opening Chat...', [{ text: 'Go', onPress: () => router.push('/chat') }, { text: 'Cancel' }])}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.featureIcon, { backgroundColor: '#FF6B6B' }]} pointerEvents="none">
+                <Ionicons name="chatbubbles" size={24} color="#fff" />
+              </View>
+              <Text style={styles.featureLabelChat} pointerEvents="none">Chat</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.featureCard, { backgroundColor: '#E0F7F5' }]}
+              onPress={() => Alert.alert('Voice', 'Opening Voice Chat...', [{ text: 'Go', onPress: () => router.push('/chat') }, { text: 'Cancel' }])}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.featureIcon, { backgroundColor: '#4ECDC4' }]} pointerEvents="none">
+                <Ionicons name="mic" size={24} color="#fff" />
+              </View>
+              <Text style={styles.featureLabelVoice} pointerEvents="none">Voice</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.featureCard, { backgroundColor: '#FFF8E0' }]}
+              onPress={() => Alert.alert('Learn', 'Opening Bible Story...', [{ text: 'Go', onPress: () => router.push('/bible-story') }, { text: 'Cancel' }])}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.featureIcon, { backgroundColor: '#FFD93D' }]} pointerEvents="none">
+                <Ionicons name="book" size={24} color="#fff" />
+              </View>
+              <Text style={styles.featureLabelLearn} pointerEvents="none">Learn</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.featureCard, { backgroundColor: '#EDE9FE' }]}
+              onPress={() => Alert.alert('Safe', 'Opening Parent Dashboard...', [{ text: 'Go', onPress: () => router.push('/parent-dashboard') }, { text: 'Cancel' }])}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.featureIcon, { backgroundColor: '#6C5CE7' }]} pointerEvents="none">
+                <Ionicons name="shield-checkmark" size={24} color="#fff" />
+              </View>
+              <Text style={styles.featureLabelSafe} pointerEvents="none">Safe</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Auth-dependent CTAs */}
@@ -459,9 +484,13 @@ const styles = StyleSheet.create({
   verseExplanation: { fontSize: 14, color: 'rgba(255,255,255,0.8)', lineHeight: 21 },
   verseShareButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: 14, backgroundColor: 'rgba(255,217,61,0.12)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, gap: 6 },
   verseShareText: { fontSize: 13, fontWeight: '600', color: '#FFD93D' },
-  featuresGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  featureCard: { width: '22%' as any, paddingVertical: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', minHeight: 80 },
+  featuresGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, gap: 8 },
+  featureCard: { flex: 1, paddingVertical: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', minHeight: 88 },
   featureIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  featureLabelChat: { fontSize: 12, fontWeight: '700', color: '#FF6B6B', textAlign: 'center' },
+  featureLabelVoice: { fontSize: 12, fontWeight: '700', color: '#4ECDC4', textAlign: 'center' },
+  featureLabelLearn: { fontSize: 12, fontWeight: '700', color: '#FFD93D', textAlign: 'center' },
+  featureLabelSafe: { fontSize: 12, fontWeight: '700', color: '#6C5CE7', textAlign: 'center' },
   primaryButton: { marginBottom: 12, borderRadius: 20, overflow: 'hidden', shadowColor: '#FF6B6B', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 8 },
   buttonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, paddingHorizontal: 24, gap: 12 },
   primaryButtonText: { color: '#fff', fontSize: 20, fontWeight: '700', flex: 1, textAlign: 'center' },
