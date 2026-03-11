@@ -32,23 +32,24 @@ An interactive mobile application for children to ask questions about the Bible 
 - [x] Multi-child Profile Management (one parent, multiple children) - Mar 2026
 - [x] Connected Parent Dashboard (real stats, conversation history, child selector) - Mar 2026
 - [x] Auth-aware UI (sign-in/sign-up screens, auth guards, personalized home) - Mar 2026
-- [x] **Push Notifications** (Expo Push API, configurable per parent) - Mar 2026
-- [x] **Weekly Summary Emails** (Resend, Sunday evening, HTML template) - Mar 2026
-- [x] **Notification Settings Dashboard** (3 configurable toggles + test email button) - Mar 2026
+- [x] Push Notifications (Expo Push API, configurable per parent) - Mar 2026
+- [x] Weekly Summary Emails (Resend, Sunday evening, HTML template) - Mar 2026
+- [x] Notification Settings Dashboard (3 configurable toggles + test email button) - Mar 2026
+- [x] AI Theological Realignment (Scripture-rooted answers, not generic) - Mar 2026
+- [x] **Voice Selection** (10 voices: 5F/5M, American/British/African accents, preview, onboarding step 3, parent dashboard management) - Mar 2026
 
 ## Current State (Mar 2026)
-The app is fully functional with authentication, multi-child support, connected parent dashboard, push notifications, and weekly summary emails. Notification settings are configurable via the parent dashboard.
+The app is fully functional with authentication, multi-child support, connected parent dashboard, push notifications, weekly summary emails, and user-selectable voices. Voice selection is available during onboarding (Step 3) and changeable from the Parent Dashboard.
 
 ## Key Files
-- `/app/backend/server.py` - Main backend (chat, auth, dashboard, voice)
+- `/app/backend/server.py` - Main backend (chat, auth, dashboard, voice, child profiles)
 - `/app/backend/routes/notifications.py` - Push notification routes and logic
 - `/app/backend/routes/emails.py` - Weekly email summary routes (Resend)
-- `/app/frontend/hooks/useAuth.ts` - Auth hook with token management
+- `/app/frontend/hooks/useAuth.ts` - Auth hook with token management + updateChildVoice
 - `/app/frontend/contexts/AuthContext.tsx` - Auth context provider
-- `/app/frontend/helpers/notifications.ts` - Push token registration helper
-- `/app/frontend/app/sign-in.tsx` - Sign in screen
-- `/app/frontend/app/sign-up.tsx` - Sign up screen
-- `/app/frontend/app/parent-dashboard.tsx` - Dashboard with settings
+- `/app/frontend/components/VoicePicker.tsx` - Voice selection UI component
+- `/app/frontend/app/onboarding.tsx` - 4-step onboarding (name → age → voice → consent)
+- `/app/frontend/app/parent-dashboard.tsx` - Dashboard with voice settings, notifications, stats
 
 ## P0 (Next Priority)
 - Pre-warm ALL KB age-adapted answers at startup (all 4 tiers)
