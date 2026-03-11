@@ -619,11 +619,28 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
+  - task: "Family Reading Night Reminder Backend API"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/notifications.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Family Reading Night Reminder feature implemented with reading night preview (public endpoint), reading night settings with authentication, validation, toggle functionality. Needs comprehensive backend testing."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED - Family Reading Night Reminder backend API working perfectly! ALL 7 TESTS PASSED (100% success rate): ✅ 1. Reading Night Preview (public endpoint) returns all required fields (title, reference, theme, summary, icon, colors, week_number) with proper data types ✅ 2. Unauthenticated access correctly returns 401 for both GET and PUT endpoints ✅ 3. Parent account creation successful with JWT token ✅ 4. Authenticated settings GET returns correct defaults (enabled: false, day: friday, hour: 19), PUT successfully updates to Saturday 20:00, verification confirms settings persist ✅ 5. Validation tests correctly reject invalid day and invalid hour (25) with 400 errors ✅ 6. Toggle off functionality works - can disable reading night reminders ✅ 7. Regression tests confirm existing endpoints still working. All Family Reading Night notification endpoints functional and production-ready!"
+
 agent_communication:
   - agent: "main"
     message: "Bible Buddy MVP implemented. Backend: User profiles, chat sessions, LLM-powered Q&A with GPT-4o, 4 age-tier prompts, safety filtering. Frontend: Child-friendly chat UI with settings. ElevenLabs TTS is failing (API key issue) but frontend has fallback. Please test the backend APIs focusing on chat, safety filtering, and age-tier differences."
   - agent: "testing"
     message: "✅ BACKEND TESTING COMPLETE - All 13 backend API tests PASSED (100% success rate). Tested: Health check, User CRUD, Chat sessions, Main chat API, Age-tier differences (4-6 vs 13-18), Safety filtering (100% block rate for unsafe content, 100% allow rate for safe content), Bible verse extraction, and conversation context maintenance. LLM integration working perfectly with GPT-4o. TTS service configured but ElevenLabs API returns 401 'unusual activity' errors as expected. All critical functionality validated and working correctly."
+  - agent: "testing"
+    message: "🌙 FAMILY READING NIGHT REMINDER TESTING COMPLETE - 100% SUCCESS! Executed comprehensive backend testing of Family Reading Night Reminder feature as requested in review_request. ALL 7 TESTS PASSED against production API (https://bible-buddy-19.preview.emergentagent.com/api): ✅ Reading Night Preview (GET /api/notifications/reading-night-preview) returns proper story data with all required fields ✅ Unauthenticated access properly blocked with 401 errors ✅ Parent registration/login working with JWT tokens ✅ Authenticated GET/PUT reading night settings working with proper defaults and updates ✅ Input validation correctly rejects invalid days and hours ✅ Toggle functionality allows disabling reminders ✅ Regression tests confirm other endpoints unaffected. Family Reading Night notification system fully functional with proper authentication, validation, and data persistence. Feature ready for production use!"
   - agent: "testing"
     message: "✅ PHASE 2 BACKEND TESTING COMPLETE - 22/25 tests PASSED (88% success rate). All critical Phase 2 APIs working: Health check with knowledge_base_size (56 entries), Knowledge base API with instant responses, Chat integration with knowledge base routing, Teachers API (4 featured teachers), Session persistence verified, Safety filtering at 100%. Minor findings: Knowledge base search is intelligently routing complex questions to LLM instead of forcing knowledge base matches - this is actually better behavior. All Phase 2 requirements fulfilled."
   - agent: "testing"

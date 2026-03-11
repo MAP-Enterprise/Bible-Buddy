@@ -57,6 +57,8 @@ export default function ParentDashboardScreen() {
   });
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [readingNight, setReadingNight] = useState({ enabled: false, day: 'friday', hour: 19 });
+  const [showDayPicker, setShowDayPicker] = useState(false);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
@@ -78,12 +80,13 @@ export default function ParentDashboardScreen() {
   const loadChildData = async (childId: string) => {
     setIsLoading(true);
     try {
-      const [statsRes, convsRes, settingsRes, challengeRes, progressRes] = await Promise.all([
+      const [statsRes, convsRes, settingsRes, challengeRes, progressRes, readingNightRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/dashboard/stats/${childId}`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/dashboard/conversations/${childId}`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/notifications/settings`, { headers: authHeaders() }),
         fetch(`${BACKEND_URL}/api/verse-challenge/stats/${childId}`),
         fetch(`${BACKEND_URL}/api/story-progress/${childId}`),
+        fetch(`${BACKEND_URL}/api/notifications/reading-night`, { headers: authHeaders() }),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (convsRes.ok) {
@@ -100,6 +103,7 @@ export default function ParentDashboardScreen() {
       }
       if (challengeRes.ok) setChallengeStats(await challengeRes.json());
       if (progressRes.ok) setReadingProgress(await progressRes.json());
+      if (readingNightRes.ok) setReadingNight(await readingNightRes.json());
     } catch (e) {
       console.error('Dashboard load error:', e);
     } finally {
@@ -164,6 +168,31 @@ export default function ParentDashboardScreen() {
     setSavingVoice(false);
     if (!result.success) {
       console.error('Voice update error:', result.error);
+    }
+  };
+
+  const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const DAY_LABELS: Record<string,string> = { monday:'Mon', tuesday:'Tue', wednesday:'Wed', thursday:'Thu', friday:'Fri', saturday:'Sat', sunday:'Sun' };
+  const HOURS = Array.from({ length: 24 }, (_, i) => i);
+  const formatHour = (h: number) => {
+    if (h === 0) return '12 AM';
+    if (h < 12) return `${h} AM`;
+    if (h === 12) return '12 PM';
+    return `${h - 12} PM`;
+  };
+
+  const saveReadingNight = async (updates: Partial<typeof readingNight>) => {
+    const newSettings = { ...readingNight, ...updates };
+    setReadingNight(newSettings);
+    try {
+      await fetch(`${BACKEND_URL}/api/notifications/reading-night`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(newSettings),
+      });
+    } catch (e) {
+      console.error('Reading night save error:', e);
+      setReadingNight(readingNight);
     }
   };
 
@@ -525,6 +554,74 @@ export default function ParentDashboardScreen() {
                 </TouchableOpacity>
               </View>
 
+              {/* Family Reading Night */}
+              <View style={styles.readingNightCard} data-testid="reading-night-settings">
+                <View style={styles.readingNightHeader}>
+                  <View style={[styles.settingIcon, { backgroundColor: '#FFF3E0' }]}>
+                    <Ionicons name="moon" size={22} color="#FF8E53" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.readingNightTitle}>Family Reading Night</Text>
+                    <Text style={styles.readingNightDesc}>
+                      {readingNight.enabled
+                        ? `Every ${readingNight.day.charAt(0).toUpperCase() + readingNight.day.slice(1)} at ${formatHour(readingNight.hour)}`
+                        : 'Set a weekly reminder for your family'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => saveReadingNight({ enabled: !readingNight.enabled })}
+                    data-testid="toggle-reading-night"
+                  >
+                    <View style={[styles.toggle, readingNight.enabled && styles.toggleActive]}>
+                      <View style={[styles.toggleDot, readingNight.enabled && styles.toggleDotActive]} />
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                {readingNight.enabled && (
+                  <View style={styles.readingNightOptions}>
+                    <Text style={styles.readingNightOptionLabel}>Pick a Day</Text>
+                    <View style={styles.dayPicker} data-testid="day-picker">
+                      {DAYS.map((day) => (
+                        <TouchableOpacity
+                          key={day}
+                          style={[styles.dayChip, readingNight.day === day && styles.dayChipActive]}
+                          onPress={() => saveReadingNight({ day })}
+                          data-testid={`day-${day}`}
+                        >
+                          <Text style={[styles.dayChipText, readingNight.day === day && styles.dayChipTextActive]}>
+                            {DAY_LABELS[day]}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={[styles.readingNightOptionLabel, { marginTop: 14 }]}>Pick a Time (UTC)</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hourPicker} data-testid="hour-picker">
+                      {HOURS.map((h) => (
+                        <TouchableOpacity
+                          key={h}
+                          style={[styles.hourChip, readingNight.hour === h && styles.hourChipActive]}
+                          onPress={() => saveReadingNight({ hour: h })}
+                          data-testid={`hour-${h}`}
+                        >
+                          <Text style={[styles.hourChipText, readingNight.hour === h && styles.hourChipTextActive]}>
+                            {formatHour(h)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    <View style={styles.readingNightPreview}>
+                      <Ionicons name="notifications" size={16} color="#FF8E53" />
+                      <Text style={styles.readingNightPreviewText}>
+                        You'll get a reminder every {readingNight.day.charAt(0).toUpperCase() + readingNight.day.slice(1)} at {formatHour(readingNight.hour)} with a preview of the week's Bible story
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+
               {/* Voice Settings */}
               <View style={styles.settingsCard} data-testid="voice-settings">
                 <TouchableOpacity
@@ -727,6 +824,25 @@ const styles = StyleSheet.create({
   earnedBadgeText: { fontSize: 12, fontWeight: '700' },
   nextBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
   nextBadgeText: { fontSize: 12, color: '#999', fontStyle: 'italic' },
+  // Reading Night
+  readingNightCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20, shadowColor: '#FF8E53', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
+  readingNightHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  readingNightTitle: { fontSize: 17, fontWeight: '700', color: '#2D3436' },
+  readingNightDesc: { fontSize: 12, color: '#636E72', marginTop: 2 },
+  readingNightOptions: { marginTop: 18, borderTopWidth: 1, borderTopColor: '#F5F5F5', paddingTop: 14 },
+  readingNightOptionLabel: { fontSize: 13, fontWeight: '700', color: '#636E72', marginBottom: 8 },
+  dayPicker: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  dayChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, backgroundColor: '#F5F5F5' },
+  dayChipActive: { backgroundColor: '#FF8E53' },
+  dayChipText: { fontSize: 13, fontWeight: '600', color: '#636E72' },
+  dayChipTextActive: { color: '#fff' },
+  hourPicker: { flexDirection: 'row', maxHeight: 44 },
+  hourChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: '#F5F5F5', marginRight: 6 },
+  hourChipActive: { backgroundColor: '#FF8E53' },
+  hourChipText: { fontSize: 12, fontWeight: '600', color: '#636E72' },
+  hourChipTextActive: { color: '#fff' },
+  readingNightPreview: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 14, padding: 12, backgroundColor: '#FFF8F0', borderRadius: 12 },
+  readingNightPreviewText: { flex: 1, fontSize: 12, color: '#856404', lineHeight: 18 },
   // Conversation detail
   conversationDetail: { flex: 1, padding: 20 },
   conversationDateHeader: { fontSize: 14, fontWeight: '600', color: '#AAA', textAlign: 'center', marginBottom: 20 },

@@ -48,6 +48,8 @@ export default function HomeScreen() {
   const [storyData, setStoryData] = useState<WeeklyStory | null>(null);
   const [storyProgress, setStoryProgress] = useState<{ current_streak: number; total_read: number; badges_earned: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [readingNightTonight, setReadingNightTonight] = useState(false);
+  const [storyPreview, setStoryPreview] = useState<{ title: string; theme: string } | null>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -64,6 +66,7 @@ export default function HomeScreen() {
 
     fetchVerseOfTheDay();
     fetchStoryPreview();
+    checkReadingNight();
   }, []);
 
   const fetchStoryPreview = async () => {
@@ -90,6 +93,35 @@ export default function HomeScreen() {
       }
     }
   };
+
+  const checkReadingNight = async () => {
+    try {
+      // Fetch preview regardless (it's public)
+      const previewRes = await fetch(`${BACKEND_URL}/api/notifications/reading-night-preview`);
+      if (previewRes.ok) {
+        const preview = await previewRes.json();
+        setStoryPreview({ title: preview.title, theme: preview.theme });
+      }
+      // Only check reading night settings if authenticated
+      if (!isAuthenticated) return;
+      const token = await storage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`${BACKEND_URL}/api/notifications/reading-night`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const settings = await res.json();
+        if (settings.enabled) {
+          const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+          const today = days[new Date().getUTCDay()];
+          if (today === settings.day) setReadingNightTonight(true);
+        }
+      }
+    } catch (e) {
+      console.log('Reading night check error:', e);
+    }
+  };
+
 
   const fetchVerseOfTheDay = async () => {
     try {
@@ -184,6 +216,30 @@ export default function HomeScreen() {
               </>
             )}
           </View>
+
+          {/* Reading Night Tonight Banner */}
+          {readingNightTonight && storyPreview && (
+            <TouchableOpacity
+              style={styles.readingNightBanner}
+              onPress={() => router.push('/bible-story')}
+              activeOpacity={0.8}
+              data-testid="reading-night-banner"
+            >
+              <LinearGradient
+                colors={['#FF8E53', '#FF6B6B']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.readingNightGradient}
+              >
+                <Ionicons name="moon" size={22} color="#fff" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.readingNightBannerTitle}>Family Reading Night!</Text>
+                  <Text style={styles.readingNightBannerText}>Tonight's story: {storyPreview.title}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
 
           {/* Verse of the Day */}
           {verseLoading ? (
@@ -421,4 +477,9 @@ const styles = StyleSheet.create({
   storyProgressRow: { flexDirection: 'row', gap: 6 },
   storyProgressPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, gap: 4 },
   storyProgressText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  // Reading Night Banner
+  readingNightBanner: { borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
+  readingNightGradient: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 12 },
+  readingNightBannerTitle: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  readingNightBannerText: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
 });

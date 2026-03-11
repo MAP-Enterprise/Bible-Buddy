@@ -1510,8 +1510,16 @@ async def prewarm_kb_audio():
     
     # Sunday evening 6 PM UTC
     scheduler.add_job(weekly_email_job, 'cron', day_of_week='sun', hour=18, minute=0)
+
+    # Reading Night reminder — runs hourly, checks which families have reading night at this hour
+    async def reading_night_job():
+        await notif_routes.send_reading_night_reminders()
+
+    scheduler.add_job(reading_night_job, 'cron', minute=0)  # Every hour at :00
+
     scheduler.start()
     logger.info("Weekly email scheduler started (Sunday 6 PM UTC)")
+    logger.info("Reading Night hourly reminder scheduler started")
     
     if not eleven_client:
         logger.info("TTS not configured, skipping audio pre-warming")
