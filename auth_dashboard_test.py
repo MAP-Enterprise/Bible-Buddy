@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional
 import time
 
 # Backend URL from review request
-BACKEND_URL = "https://voice-chat-kids.preview.emergentagent.com/api"
+BACKEND_URL = "https://bible-buddy-19.preview.emergentagent.com/api"
 
 class AuthDashboardTester:
     def __init__(self):

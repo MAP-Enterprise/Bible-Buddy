@@ -6,7 +6,7 @@ import json
 import re
 
 # Backend URL from environment
-BACKEND_URL = "https://voice-chat-kids.preview.emergentagent.com/api"
+BACKEND_URL = "https://bible-buddy-19.preview.emergentagent.com/api"
 
 class VerseChallengeTest:
     def __init__(self):

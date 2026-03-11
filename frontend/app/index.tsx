@@ -28,6 +28,16 @@ interface VerseOfTheDay {
   explanation: string;
 }
 
+interface WeeklyStory {
+  title: string;
+  reference: string;
+  theme: string;
+  icon: string;
+  colors: string[];
+  summary: string;
+  week_number: number;
+}
+
 export default function HomeScreen() {
   const { isAuthenticated, isLoading: authLoading, user, children: childProfiles, activeChild, logout } = useAuthContext();
   const bounceAnim = useRef(new Animated.Value(0)).current;
@@ -35,6 +45,7 @@ export default function HomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [verseData, setVerseData] = useState<VerseOfTheDay | null>(null);
   const [verseLoading, setVerseLoading] = useState(true);
+  const [storyData, setStoryData] = useState<WeeklyStory | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -51,7 +62,21 @@ export default function HomeScreen() {
     ).start();
 
     fetchVerseOfTheDay();
+    fetchStoryPreview();
   }, []);
+
+  const fetchStoryPreview = async () => {
+    try {
+      const ageTier = activeChild?.age_tier || '7-9';
+      const res = await fetch(`${BACKEND_URL}/api/story-of-the-week?age_tier=${ageTier}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStoryData(data);
+      }
+    } catch (e) {
+      console.log('Story fetch error:', e);
+    }
+  };
 
   const fetchVerseOfTheDay = async () => {
     try {
@@ -180,6 +205,41 @@ export default function HomeScreen() {
               </LinearGradient>
             </View>
           ) : null}
+
+          {/* Story of the Week */}
+          {storyData && (
+            <TouchableOpacity
+              style={styles.storyCard}
+              onPress={() => router.push('/bible-story')}
+              activeOpacity={0.9}
+              data-testid="story-of-the-week-card"
+            >
+              <LinearGradient
+                colors={storyData.colors || ['#6C5CE7', '#A29BFE']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.storyGradient}
+              >
+                <View style={styles.storyHeader}>
+                  <View style={styles.storyIconCircle}>
+                    <Ionicons name={(storyData.icon || 'book') as any} size={24} color="#fff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.storyLabel}>Story of the Week</Text>
+                    <Text style={styles.storyWeek}>Week {storyData.week_number}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.7)" />
+                </View>
+                <Text style={styles.storyTitle}>{storyData.title}</Text>
+                <Text style={styles.storyRef}>{storyData.reference}</Text>
+                <Text style={styles.storySummary} numberOfLines={2}>{storyData.summary}</Text>
+                <View style={styles.storyThemePill}>
+                  <Ionicons name="sparkles" size={12} color="#fff" />
+                  <Text style={styles.storyThemeText}>{storyData.theme}</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
 
           {/* Features Grid */}
           <View style={styles.featuresGrid}>
@@ -313,4 +373,17 @@ const styles = StyleSheet.create({
   dashboardButtonText: { color: '#6C5CE7', fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8, marginBottom: 20 },
   logoutText: { fontSize: 15, color: '#FF6B6B', fontWeight: '600' },
+
+  // Story of the Week
+  storyCard: { borderRadius: 24, overflow: 'hidden', marginBottom: 20 },
+  storyGradient: { padding: 22, borderRadius: 24 },
+  storyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  storyIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  storyLabel: { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.9)' },
+  storyWeek: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  storyTitle: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  storyRef: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginBottom: 10 },
+  storySummary: { fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 20, marginBottom: 14 },
+  storyThemePill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, gap: 5 },
+  storyThemeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
 });

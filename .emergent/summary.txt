@@ -1,173 +1,172 @@
 <analysis>
 
-**original_problem_statement**: The user wants to build a mobile application called Bible Buddy. It's an interactive app for children to ask questions about the Bible and receive safe, age-appropriate answers. The application should feature both text and voice-based interaction.
+**original_problem_statement**: The user wants to build a mobile application called Bible Buddy, an interactive app for children to ask questions about the Bible and receive safe, age-appropriate answers.
 
 **PRODUCT REQUIREMENTS:**
-- **Phase 1 (Completed):** Establish the technical foundation, including a monorepo, CI/CD, cloud infrastructure, a basic UI/UX design, a core AI conversation engine with age-tier prompts, and a safety/content filtering layer.
-- **Phase 2 (In Progress):** Build the full mobile app for iOS and Android. This includes full voice interaction (Speech-to-Text and Text-to-Speech), a polished chat UI, user onboarding with parental consent, a parent dashboard (view conversation history, manage settings), and a persistent knowledge base for instant answers.
-- **Enhancement (Completed):** Incorporate knowledge from specific pastors (Apostle Selman, Stephanie Ike, Steven Furtick, Priscilla Shirer) into the AI's responses and feature them in the app.
-- **Enhancement (Completed):** Rebuild the frontend to be modern, appealing, and colorful.
+- **Phase 1 (Completed):** Establish the technical foundation.
+- **Phase 2 (In Progress):** Build the full mobile app for iOS and Android. This includes full voice interaction (Speech-to-Text and Text-to-Speech), a polished chat UI, user onboarding with parental consent, a parent dashboard (view conversation history, manage settings), and a persistent knowledge base.
+- **Enhancement 1 (Completed):** Incorporate knowledge from specific pastors into the AI's responses.
+- **Enhancement 2 (Completed):** Rebuild the frontend to be modern, appealing, and colorful.
+- **Enhancement 3 (Completed):** Implement a full, secure authentication system where parents can create accounts and manage multiple child profiles.
+- **Enhancement 4 (Completed):** Implement a notification system (push and email) to keep parents informed of their child's activity.
+- **Enhancement 5 (Completed):** Refine the AI's core prompt to provide theologically sound, Scripture-based answers.
+- **Enhancement 6 (Completed):** Allow users to select from a variety of voices for the text-to-speech feature.
+- **Enhancement 7 (Completed):** Implement a 365-day Verse of the Day system.
+- **Enhancement 8 (Completed):** Pre-warm and cache all Knowledge Base answers at startup for instant responses.
+- **Enhancement 9 (Completed):** Implement persistent conversation history.
+- **Enhancement 10 (Completed):** Add a Verse Memory Challenge game.
+- **Enhancement 11 (Completed):** Add challenge statistics and a family leaderboard to the Parent Dashboard.
+- **Enhancement 12 (Completed):** Implement a COPPA-compliant parental consent flow.
+- **Enhancement 13 (In Progress):** Add a Bible Story of the Week feature.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application with a FastAPI backend and an Expo (React Native) frontend.
-
-- **Backend:** Features a highly adaptive and performant chat system.
-    - **Adaptive AI:** Builds a MongoDB-backed user profile (, , ) from conversations to provide personalized, context-aware coaching. It seamlessly integrates wisdom from specified teachers (Selman, Ike, Furtick, Shirer) into responses without explicit attribution.
-    - **Performance:** Employs an in-memory cache for all pre-warmed, age-adapted Knowledge Base answers, ensuring instant responses for common questions. AI-generated responses return text immediately while audio is generated in the background. The LLM has been switched to the faster .
-    - **TTS:** Generates high-quality ElevenLabs audio, saves it to a local cache (), and serves it via a stable HTTP endpoint (), ensuring native platform compatibility.
-    - **STT:** A Deepgram-powered transcription endpoint () is fully functional.
-    - **Other Endpoints:** Includes a Verse of the Day endpoint and placeholders for authentication.
-
-- **Frontend:** A modern, cross-platform Expo app.
-    - **UI/UX:** Features a Verse of the Day card on the home screen, a fully functional onboarding flow, and a chat screen with an animated typing indicator.
-    - **Voice I/O:** The microphone button successfully captures audio (using  on web,  on native), sends it for transcription, and displays the result. The app correctly plays back ElevenLabs audio served from the backend's HTTP endpoint.
-    - **Storage:** A robust, cross-platform storage helper () uses  on native and  on web, resolving previous Expo Go crashes.
+The project is a feature-rich, full-stack application using Expo (React Native) for the frontend and FastAPI for the backend.
+- **Backend:** The backend is now highly modular, having been refactored from a monolithic  into multiple  files for each domain (auth, chat, children, etc.). It features a full JWT authentication system, supports multiple child profiles, and serves a 365-day verse system. It also includes endpoints for a Verse Memory Challenge, family leaderboards, and the new Story of the Week. A startup task pre-warms all 224 (56 questions x 4 age tiers) knowledge base answers for instant AI responses.
+- **Frontend:** A modern Expo app with a complete user flow: sign-up, sign-in, multi-step child onboarding (including voice selection and COPPA consent), a personalized home screen, a chat interface, a verse memory game, a family leaderboard, and a comprehensive parent dashboard. The dashboard allows parents to manage child profiles, view challenge stats, and configure notification settings. The Story of the Week card has been added to the home screen, and its dedicated page has been created.
 
 **Last working item**:
-    - Last item agent was working: The agent was beginning implementation of a user-approved plan to add a full authentication system and connect the Parent Dashboard to real user data. It had started by exploring the existing backend and frontend files related to authentication and user sessions to formulate a plan.
+    - Last item agent was working: Implementing the Bible Story of the Week feature. The agent created the data file (), added the backend endpoint (), created the frontend screen (), and integrated a card onto the home screen ().
     - Status: IN PROGRESS
     - Agent Testing Done: N
-    - Which testing method agent to use? both. These changes will require end-to-end testing, covering backend API endpoints for auth and profiles, and frontend UI for login, registration, and the dashboard.
+    - Which testing method agent to use? both. First, a manual restart and screenshot to verify the UI. Then, the  for end-to-end verification.
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-There are no outstanding bugs. All issues from the previous handoff and those reported during the session have been resolved. The current focus is on feature development.
+No outstanding bugs.
 
 **In progress Task List**:
-  - Task 1:  Implement Full Authentication & Parent Dashboard (P0)
+  - Task 1:  Finalize and Test Bible Story of the Week Feature (P0)
 
  Task Detail:
   - Task 1: 
-     - Where to resume: The agent has reviewed the existing (mostly placeholder) auth files. The next step is to implement the backend changes first:
-        1.  In , build out the  and  endpoints using  for password hashing and  for JWT creation.
-        2.  Create protected endpoints  and  that require a valid JWT to return data.
-        3.  Update the frontend  hook and sign-in/sign-up screens in  to call these new endpoints.
-        4.  Connect the Parent Dashboard screen () to fetch and display data from the new protected endpoints.
-     - What will be achieved with this? This will transition the app from an anonymous, device-based experience to a secure, account-based system, enabling parents to monitor their child's interactions from any device and laying the groundwork for multi-child profiles.
+     - Where to resume: The code for the feature is complete, but the frontend has not been restarted to reflect the changes (a new screen file was created, and the home screen was modified). The feature is completely untested.
+     - **Next Steps:**
+        1.  Restart the frontend service to load the new  file and home screen changes: frontend: ERROR (no such process)
+frontend: ERROR (no such process).
+        2.  Take a screenshot of the home screen to verify the Story of the Week card appears correctly.
+        3.  Call the  to thoroughly test the full user flow:
+            - Confirm the card appears on the home screen.
+            - Confirm clicking the card navigates to the story page.
+            - Confirm the story page correctly fetches and displays the weekly story narrative and discussion questions.
+     - What will be achieved with this? A new weekly engagement feature will be live, giving families a shared activity.
      - Status:  IN PROGRESS
      - Should Test frontend/backend/both after fix? Both
      - Blocked on something: None
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - **P1 - Pre-warm ALL KB age-adapted answers at startup:** The current implementation caches KB answers on the first request for a given age tier. The plan is to modify the startup task to proactively generate and cache all 56 KB questions for all 4 age tiers, making every KB response instant from the first use.
-    - **P2 - Implement Parental Consent Flow:** The onboarding process must be enhanced to include a COPPA-compliant verifiable parental consent mechanism.
+  - **P1 - Full QA Testing:** Conduct thorough quality assurance testing across iOS and Android platforms, as the app is now feature-complete.
+  - **P2 - Implement True Streaming:** Upgrade the AI response from text-first to a word-by-word stream using Server-Sent Events (SSE) for a more interactive chat feel.
 
 - **Future Tasks:**
-    - **P2 - Persistent Conversation History:** While user profiles are saved, the full message history is not. The chat endpoints should be updated to save all messages to the database to be retrieved by the parent dashboard.
-    - **P3 - Full QA Testing:** Conduct thorough quality assurance testing across iOS and Android platforms.
-    - **P3 - Implement True Streaming:** Upgrade the AI response from text-first to a word-by-word stream using Server-Sent Events (SSE) for an even more interactive feel.
+  - **P2 - Refine Parent Dashboard UI:** Break down the  component into smaller, more manageable sub-components.
+  - **P3 - Internationalization (i18n):** Add support for multiple languages.
 
 **Completed work in this session**
-- **Critical Bug Fixes:**
-  - **Onboarding Unblocked:** Fixed the broken age selection UI () by removing faulty  dimension calculations.
-  - **Home Screen UI Fixed:** Repaired the features grid layout on the home screen ().
-  - **Expo Go Crash Resolved:** Replaced the incompatible  with  via a unified  helper, making the app stable on Expo Go.
-- **Voice I/O Overhaul (TTS & STT):**
-  - **TTS Fixed for Native:** Resolved the core no audio bug on native by refactoring the backend to serve MP3 files via HTTP URLs instead of incompatible base64 data URIs.
-  - **STT Implemented:** Fully wired the microphone button to record audio cross-platform, send it to the Deepgram backend for transcription, and populate the chat input.
-- **Performance & UX Enhancements:**
-  - **Drastically Reduced Latency:** Implemented a multi-pronged optimization strategy: switched to the faster , created an in-memory cache for Knowledge Base answers, and architected a text-first, audio-later response flow. This reduced AI response times from ~20s to ~4s and KB times from ~3s to ~0.2s.
-  - **New Feature: Verse of the Day:** Added a daily Bible verse card to the home screen with an AI-generated, age-appropriate explanation.
-  - **Engaging Typing Indicator:** Replaced the static Thinking... text with a fun, animated indicator to improve perceived performance.
-- **AI Evolution - The Adaptive Coach:**
-  - **Personalized AI:** Implemented a user profile system in MongoDB that learns from each conversation, tracking a user's fears, strengths, and topics of interest.
-  - **Contextual Responses:** The AI now uses the user's profile to deliver highly personalized, empathetic, and coaching-style responses that grow with the user.
-  - **Age-Adapted KB:** Knowledge Base answers are now dynamically rephrased by the AI to match the user's selected age tier, ensuring all content is appropriate.
-  - **Natural Teacher Wisdom:** Refined the AI prompt to integrate teachings from specified pastors naturally, without name-dropping, as requested by the user.
+- **Voice Selection Feature:** Fully implemented, allowing users to select a TTS voice during onboarding and change it in the parent dashboard.
+- **365 Verse of the Day:** Replaced the static 31-verse list with a comprehensive 365-verse system, managed in a dedicated data file.
+- **KB Pre-warming:** Implemented a startup task that generates and caches all 224 age-adapted KB answers, making all KB responses instant.
+- **Persistent Conversation History:** Verified that chat messages are saved to the DB and are retrievable.
+- **Verse Memory Challenge:** Added a fill-in-the-blank game for the daily verse, including backend logic and a frontend game screen.
+- **Parent Dashboard Enhancements:** Added cards for Verse Challenge Stats and a button to a new Family Leaderboard page.
+- **COPPA-Compliant Consent:** Implemented a verifiable parental consent step during child onboarding.
+- **Major Backend Refactor:** Successfully refactored the monolithic  into 9 modular  files, significantly improving code organization and maintainability.
+- **Family Leaderboard:** Created a backend endpoint and frontend screen to display family-wide challenge scores.
+- **Resend Domain Verification:** Added a backend endpoint and frontend page to guide the user on verifying their email domain with Resend for production use.
+- **Bible Story of the Week:** Implemented the backend logic, data file, and frontend UI (pending testing).
 
 **Earlier issues found/mentioned but not fixed**
-None. All issues identified in the previous handoff or by the user during this session have been addressed and fixed.
+None.
 
 **Known issue recurrence from previous fork**
-  - **Issue:** The Expo Go tunnel (powered by ngrok) is unstable and can intermittently fail to connect, causing the user to report that the preview is not working.
-  - **Recurrence count:** High (occurred 3-4 times this session).
-  - **Status:** RESOLVED (for now). The agent was able to resolve it by restarting the frontend service multiple times. The next agent should be aware that if the user reports Expo Go issues, the first step is to restart the  supervisor service to re-establish the tunnel. The web preview is generally more stable.
+  - **Issue:** The Expo Go tunnel (powered by ngrok) can be unstable.
+  - **Recurrence count:** High (in previous forks).
+  - **Status:** RESOLVED (for now). The standard fix is to restart the  supervisor service: frontend: ERROR (no such process)
+frontend: ERROR (no such process). This should be the first action for any user-reported connection issues.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend:** FastAPI, ,  (async MongoDB),  &  (for auth), in-memory caching, background tasks (), serving static audio files.
-- **Frontend:** React Native, Expo, TypeScript, , ,  (for audio recording/playback), .
-- **Architecture:** Monorepo with a stateful, adaptive AI core. The system is optimized for low-latency, with a text-first, audio-later response pattern and extensive caching.
+- **Backend:** FastAPI,  for modular design,  (async MongoDB), ,  (JWT), , , .
+- **Frontend:** React Native, Expo, TypeScript,  for file-based routing, , , , , Context API.
+- **Architecture:** Monorepo with a highly modular FastAPI backend. State-driven UI on the frontend.
 
 **key DB schema**
-  - **users**: 
-  - **age_adapted_kb_cache**: 
-  - **knowledge_base**: 
-  - **teachers**: 
+  - **parents**: 
+  - **children**: 
+  - **conversations**: 
+  - **challenge_stats**:  (New)
+  - **(Other collections):** , , 
 
 **changes in tech stack**
-  - **Backend:** Added  (for internal API calls),  and  (for authentication).
-  - **Frontend:** Added  for persistent, secure storage on native platforms, replacing direct usage of .
+- No new libraries were added, but the backend underwent a significant architectural refactor, moving from a single-file  to a modular -based structure.
 
 **All files of reference**
-- : The heart of the application. Contains all logic for chat, AI adaptation, user profiles, TTS/STT, and caching.
-- : The main chat interface. Contains all logic for voice input/output, displaying messages, and the animated typing indicator.
-- : The critical abstraction layer for cross-platform storage. All local storage operations MUST go through this file.
-- : The directory for the upcoming authentication flow (sign-in, sign-up).
-- : The placeholder screen to be connected to real data.
+- : The home screen, which was just modified to include the Story of the Week feature.
+- : The new screen for the feature, needs to be loaded by restarting the frontend.
+- : The router module that now contains the  endpoint.
+- : Now a slim orchestrator that imports and includes all the API routers.
+- The entire  directory, which represents the new modular structure.
 
 **Areas that need refactoring**:
-- The  file is now over 1000 lines long and handles routing, database logic, AI prompting, and external API calls. It should be broken down into a more scalable structure (e.g., using FastAPI's  for different domains like , , ).
+-  refactoring is complete and serves as a model.
+- The primary frontend components  (home screen) and  have grown large and would benefit from being broken down into smaller, more focused components.
 
 **key api endpoints**
-- : (New, to be implemented)
-- : (New, to be implemented)
-- : (New, to be implemented)
-- : (New, to be implemented)
-- : (New) Serves cached MP3 audio files.
-- : (Now fully used) Transcribes recorded audio from the frontend.
-- : (Heavily modified) Core endpoint for adaptive, low-latency chat.
-- : (New)
+- 
+- 
+- 
+- 
+- 
+- 
+- 
 
 **Critical Info for New Agent**
-- **Priority:** Your main task is to implement the authentication and parent dashboard features as outlined in the In progress Task List.
-- **Architecture:** The app's core value now lies in its adaptive AI and performance. Maintain the caching and text-first architecture. Any changes to the chat flow must not introduce latency.
-- **Storage:** **Do not directly use AsyncStorage or localStorage.** All reads/writes to device storage must use the abstraction in .
-- **Expo Go Tunnel:** Be aware that the Expo Go preview tunnel is flaky. If the user reports it's not working, restart the  supervisor service. Rely on the web preview for more stable testing.
-- **File-based Audio:** The backend serves audio as MP3 files from . This is essential for native audio playback and must not be changed back to base64 URIs.
+- **Immediate Task:** Your first job is to finalize and test the Story of the Week feature. This requires restarting the frontend service before any testing can begin.
+- **Backend Architecture:** The backend has been completely refactored.  is just an entry point. All business logic now resides in the  directory. Follow this modular pattern for any future backend changes.
+- **Testing:** The previous agent established a strong testing rhythm, using  after every major feature implementation. Continue this practice to ensure stability.
 
 **documents created in this job**
+  -  (Continuously updated)
+  - 
   - 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **go ahead with the next action items...**: User approved the plan to work on the Parent Dashboard and authentication. (IN PROGRESS)
-2.  **How can we make the question to response time shorter...**: User requested performance improvements. (Completed)
-3.  **preview via expo go is not working**: User reported Expo Go tunnel issues. (Completed, but may recur)
-4.  **the responses should be based on the teachings, but no need to mention their names...**: User requested more natural AI responses. (Completed)
-5.  **I want each users buddy to be adaptive...**: User requested the major AI coach feature with user profiles and teacher wisdom. (Completed)
-6.  **I want to make sure that responses are broken down to simple concepts...**: User requested better age adaptation. (Completed)
-7.  **The mic button does not work, fix this.**: User requested STT implementation. (Completed)
-8.  **would this response playback be in real time...**: User asked about TTS latency. (Completed)
-9.  **The voice out response is still not being heard.**: User reported the critical TTS bug on native. (Completed)
-10. **The chat function works but the voice readout still does not work...**: User reported the TTS bug. (Completed)
+1.  **yes, proceed**: User approved the plan to implement the Bible Story of the Week feature. (IN PROGRESS)
+2.  **...Bible Story of the Week feature...**: User requested a new feature. (APPROVED)
+3.  **Go Ahead and work through Next Action Items...**: User approved the 5-item plan (challenge stats, COPPA, refactor, leaderboard, Resend). (COMPLETED)
+4.  **Yes, proceed. And verify they all work**: User approved the detailed plan for the 5 items. (COMPLETED)
+5.  **...Verse Memory Challenge feature...**: User suggested and approved the memory game. (COMPLETED)
+6.  **GO AHEAD AND IMPLEMENT Next Action Items**: User approved the plan to implement 3 features (365 verses, KB pre-warm, persistent history). (COMPLETED)
+7.  **Proceed with P0**: User approved the plan to implement the Voice Selection feature. (COMPLETED)
+8.  **add a Verse Memory Challenge feature...**: Agent suggested a new feature. (APPROVED)
+9.  **Go Ahead and work through Next Action Items step by step work down the list...**: User provided a list of tasks. (COMPLETED)
+10. **add a Bible Story of the Week feature...**: User suggested a new feature. (APPROVED)
 
 **Project Health Check:**
-- **Broken:**
-    - None
-- **Mocked:**
-    - **Authentication:** The sign-in/sign-up screens are placeholders and not connected to a backend.
-    - **Parent Dashboard:** The UI is a placeholder and does not show real user data.
+- **Broken:** None
+- **Mocked:** None
 
 **3rd Party Integrations**
 - OpenAI GPT-4o-mini — uses Emergent LLM Key
-- ElevenLabs (Text-to-Speech) — requires User API Key (Key is functional)
-- Deepgram (Speech-to-Text) — requires User API Key (Key is functional)
+- ElevenLabs (Text-to-Speech) — requires User API Key
+- Deepgram (Speech-to-Text) — requires User API Key
+- Resend (Email) — requires User API Key
 
 **Testing status**
-  - Testing agent used after significant changes: YES. Both backend and frontend agents were used successfully multiple times.
+  - Testing agent used after significant changes: YES (Used for every major feature in the last session, resulting in 100% pass rates).
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
   - Known regressions: None.
 
 **Credentials to test flow:**
-User-provided API keys for ElevenLabs and Deepgram are present in the backend  file and are working.
+- User-provided API keys for ElevenLabs, Deepgram, and Resend are present in  and are assumed to be working.
 
 **What agent forgot to execute**
-Nothing. The agent successfully executed all user requests and its own planned tasks from the previous finish step.
+- The agent did not restart the frontend service after creating the new  file and modifying the home screen ().
+- The agent did not perform any testing (screenshot or testing agent) for the Bible Story of the Week feature after implementing the code.
 
 </analysis>

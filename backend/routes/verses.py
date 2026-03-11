@@ -11,17 +11,20 @@ router = APIRouter(prefix="/api", tags=["verses"])
 
 db = None
 DAILY_VERSES = []
+WEEKLY_STORIES = []
 LlmChat = None
 UserMessage = None
 EMERGENT_LLM_KEY = ""
 
 def init(database, verses, llm_chat_cls, user_msg_cls, llm_key):
-    global db, DAILY_VERSES, LlmChat, UserMessage, EMERGENT_LLM_KEY
+    global db, DAILY_VERSES, LlmChat, UserMessage, EMERGENT_LLM_KEY, WEEKLY_STORIES
     db = database
     DAILY_VERSES = verses
     LlmChat = llm_chat_cls
     UserMessage = user_msg_cls
     EMERGENT_LLM_KEY = llm_key
+    from bible_stories import WEEKLY_STORIES as ws
+    WEEKLY_STORIES = ws
 
 
 class ChallengeSubmission(BaseModel):
@@ -190,3 +193,100 @@ async def get_challenge_stats(child_id: str):
         "total_played": total, "current_streak": current_streak, "best_streak": best_streak,
         "average_score": avg_score, "perfect_scores": perfect, "recent": challenges[:7],
     }
+
+
+def _get_week_number() -> int:
+    """Get ISO week number (1-52)"""
+    return datetime.now(timezone.utc).isocalendar()[1]
+
+
+@router.get("/story-of-the-week")
+async def get_story_of_the_week(age_tier: str = "7-9"):
+    """Get this week's Bible story with AI-generated narrative and discussion questions"""
+    week_num = _get_week_number()
+    story_index = (week_num - 1) % len(WEEKLY_STORIES)
+    story_data = WEEKLY_STORIES[story_index]
+    today = datetime.now(timezone.utc)
+    week_key = f"{today.year}-W{week_num:02d}"
+
+    # Check cache
+    cached = await db.weekly_stories.find_one(
+        {"week_key": week_key, "age_tier": age_tier}, {"_id": 0}
+    )
+    if cached:
+        return cached
+
+    # Generate age-adapted narrative + discussion questions
+    narrative = ""
+    discussion_questions = []
+    try:
+        age_labels = {
+            "4-6": "a 4-6 year old (very simple words, short sentences, playful and warm)",
+            "7-9": "a 7-9 year old (clear language, engaging storytelling, relatable examples)",
+            "10-12": "a 10-12 year old (more detail, deeper meaning, character motivations)",
+            "13-18": "a teenager (thoughtful, nuanced, real-life application, respectful tone)",
+        }
+        age_label = age_labels.get(age_tier, "a child")
+
+        chat_client = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"story_{week_key}_{age_tier}",
+            system_message=(
+                f"You are Bible Buddy, a master storyteller who brings Bible stories to life for {age_label}. "
+                "Tell the story in an engaging, vivid narrative style. Use dialogue where possible. "
+                "Keep it theologically accurate and faithful to Scripture. "
+                "After the story, provide exactly 3 family discussion questions.\n\n"
+                "FORMAT:\n[STORY]\n(your narrative here, 4-8 paragraphs)\n\n"
+                "[QUESTIONS]\n1. (question)\n2. (question)\n3. (question)"
+            ),
+        ).with_model("openai", "gpt-4o-mini")
+
+        prompt = (
+            f"Tell the Bible story: \"{story_data['title']}\" ({story_data['reference']}). "
+            f"Characters: {', '.join(story_data['characters'])}. "
+            f"Summary: {story_data['summary']}"
+        )
+        response = await chat_client.send_message(UserMessage(text=prompt))
+
+        # Parse response
+        if "[QUESTIONS]" in response:
+            parts = response.split("[QUESTIONS]")
+            narrative = parts[0].replace("[STORY]", "").strip()
+            q_text = parts[1].strip()
+            discussion_questions = [
+                q.strip().lstrip("0123456789.").strip()
+                for q in q_text.split("\n") if q.strip() and any(c.isalpha() for c in q)
+            ][:3]
+        else:
+            narrative = response.replace("[STORY]", "").strip()
+            discussion_questions = [
+                f"What do you think {story_data['characters'][0]} was feeling in this story?",
+                f"How does this story teach us about {story_data['theme'].lower()}?",
+                "How can we apply this story's lesson in our lives today?",
+            ]
+    except Exception as e:
+        logger.error(f"Story generation error: {e}")
+        narrative = story_data["summary"]
+        discussion_questions = [
+            f"What is the main lesson from this story?",
+            f"Which character do you relate to most and why?",
+            "What would you do differently if you were in this story?",
+        ]
+
+    result = {
+        "week_key": week_key,
+        "week_number": week_num,
+        "title": story_data["title"],
+        "reference": story_data["reference"],
+        "characters": story_data["characters"],
+        "theme": story_data["theme"],
+        "icon": story_data["icon"],
+        "colors": story_data["colors"],
+        "summary": story_data["summary"],
+        "narrative": narrative,
+        "discussion_questions": discussion_questions,
+        "age_tier": age_tier,
+    }
+
+    await db.weekly_stories.insert_one({**result, "created_at": datetime.now(timezone.utc)})
+    return result
