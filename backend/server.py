@@ -760,8 +760,7 @@ async def preview_voice(voice_id: str):
 # ==================== SAFETY FILTERING ====================
 
 UNSAFE_PATTERNS = [
-    "kill", "murder", "hurt", "violence", "weapon", "gun", "knife",
-    "suicide", "self-harm", "cut myself", "end my life", "want to die",
+    "suicide", "self-harm", "cut myself", "end my life", "kill myself",
     "sex", "naked", "porn", "explicit",
     "bypass", "ignore instructions", "pretend you're not", "jailbreak"
 ]
@@ -783,8 +782,8 @@ def check_content_safety(text: str) -> SafetyCheckResult:
         if keyword in text_lower:
             return SafetyCheckResult(is_safe=False, category="self-harm", redirect_message=SAFETY_REDIRECTS["self-harm"])
     
-    # Violence check
-    violence_keywords = ["kill", "murder", "hurt someone", "weapon", "gun", "knife"]
+    # Violence check — specific phrases only, not general words
+    violence_keywords = ["murder", "hurt someone", "hurt people", "weapon", "i have a gun", "i have a knife"]
     for keyword in violence_keywords:
         if keyword in text_lower:
             return SafetyCheckResult(is_safe=False, category="violence", redirect_message=SAFETY_REDIRECTS["violence"])
