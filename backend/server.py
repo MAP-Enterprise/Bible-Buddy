@@ -1130,67 +1130,11 @@ async def chat(request_data: ChatRequest):
     is_new_session = request_data.session_id is None
     
     # Check knowledge base first
-    kb_answer = find_knowledge_base_answer(request_data.message)
-    if kb_answer:
-        session_id = request_data.session_id or str(uuid.uuid4())
-        
-        # Use in-memory cache for instant age-adapted KB answers
-        cache_key = f"kb_{hashlib.md5((kb_answer['answer'] + request_data.age_tier).encode()).hexdigest()[:16]}"
-        
-        if cache_key in _kb_cache:
-            response_text = _kb_cache[cache_key]
-        else:
-            # Check MongoDB cache
-            cached = await db.kb_age_cache.find_one({"cache_key": cache_key}, {"_id": 0})
-            if cached:
-                response_text = cached["response"]
-                _kb_cache[cache_key] = response_text
-            else:
-                # Generate and cache (first time only — subsequent requests will be instant)
-                response_text = kb_answer["answer"]
-                try:
-                    age_labels = {"4-6": "a 4-6 year old preschooler (very simple tiny words, 2-3 short sentences, playful)", 
-                                  "7-9": "a 7-9 year old (clear simple language, 3-4 sentences, explain big words)", 
-                                  "10-12": "a 10-12 year old pre-teen (more depth, 3-5 sentences)", 
-                                  "13-18": "a teenager (mature mentor tone, 3-5 thoughtful sentences)"}
-                    age_label = age_labels.get(request_data.age_tier, age_labels["7-9"])
-                    response_text = await _anthropic_chat(
-                        system_message="Rephrase this Bible answer for the specified age group. Keep facts and verses. Adapt language only. Return ONLY the rephrased text.",
-                        user_text=f"For {age_label}:\n\n{kb_answer['answer']}",
-                        max_tokens=400
-                    )
-                    _kb_cache[cache_key] = response_text
-                    await db.kb_age_cache.insert_one({"cache_key": cache_key, "response": response_text, "age_tier": request_data.age_tier})
-                except Exception as e:
-                    logger.error(f"KB rephrase error: {e}")
-        
-        # Check if audio is cached
-        audio_url = None
-        if request_data.include_audio and eleven_client:
-            text_hash = hashlib.md5(response_text.encode()).hexdigest()[:16]
-            audio_path = AUDIO_CACHE_DIR / f"{text_hash}.mp3"
-            if audio_path.exists():
-                audio_url = f"/api/audio/{text_hash}.mp3"
-            else:
-                asyncio.create_task(_background_tts(response_text, session_id, child_voice))
-        
-        await save_chat_messages(session_id, request_data.child_id, request_data.age_tier, 
-                                request_data.message, response_text, audio_url)
-        
-        # Notify parent in background
-        asyncio.create_task(notif_routes.notify_parent_on_chat(
-            request_data.child_id, None, request_data.message, is_new_session
-        ))
-        
-        return ChatResponse(
-            session_id=session_id,
-            response=response_text,
-            audio_url=audio_url,
-            bible_verses=kb_answer.get("verses", []),
-            from_knowledge_base=True
-        )
-    
-    # Use LLM for non-cached questions
+    # NOTE: Knowledge base lookup removed — all questions go through full LLM pipeline
+    # so every answer is personalised, engaging, and uses the child's context.
+    kb_answer = find_knowledge_base_answer(request_data.message)  # still used for bible_verses extraction
+
+    # Use LLM for all questions
     try:
         child = await db.children.find_one({"child_id": request_data.child_id}, {"_id": 0})
         preferred_translation = child.get("preferred_translation", "NIV") if child else "NIV"
@@ -1222,6 +1166,11 @@ async def chat(request_data: ChatRequest):
     
     response_text = post_process_safety(response_text)
     bible_verses = extract_bible_verses(response_text)
+    # Supplement with KB verses if available
+    if kb_answer and kb_answer.get("verses"):
+        for v in kb_answer["verses"]:
+            if v not in bible_verses:
+                bible_verses.append(v)
     
     # DON'T wait for TTS - return text immediately, generate audio in background
     session_id = request_data.session_id or str(uuid.uuid4())
