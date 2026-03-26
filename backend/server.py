@@ -26,7 +26,11 @@ async def _anthropic_chat(system_message: str, user_text: str, model: str = "cla
     )
     return response.content[0].text
 
-from elevenlabs import ElevenLabs, VoiceSettings
+try:
+    from elevenlabs import ElevenLabs, VoiceSettings
+except ImportError:
+    ElevenLabs = None
+    VoiceSettings = None
 # Deepgram is used via REST API directly
 import aiohttp
 import io
