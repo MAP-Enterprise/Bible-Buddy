@@ -15,7 +15,7 @@ from datetime import datetime, timezone, timedelta
 import base64
 from anthropic import AsyncAnthropic
 
-async def _anthropic_chat(system_message: str, user_text: str, model: str = "claude-3-5-haiku-20241022", max_tokens: int = 600) -> str:
+async def _anthropic_chat(system_message: str, user_text: str, model: str = "claude-3-haiku-20240307", max_tokens: int = 600) -> str:
     """Drop-in replacement for LlmChat - calls Anthropic API directly."""
     client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     response = await client.messages.create(
