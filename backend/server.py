@@ -13,7 +13,19 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import base64
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from anthropic import AsyncAnthropic
+
+async def _anthropic_chat(system_message: str, user_text: str, model: str = "claude-3-5-haiku-20241022", max_tokens: int = 600) -> str:
+    """Drop-in replacement for LlmChat - calls Anthropic API directly."""
+    client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    response = await client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system_message,
+        messages=[{"role": "user", "content": user_text}]
+    )
+    return response.content[0].text
+
 from elevenlabs import ElevenLabs, VoiceSettings
 # Deepgram is used via REST API directly
 import aiohttp
@@ -40,7 +52,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # API Keys
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY')
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
 
@@ -825,9 +837,7 @@ async def update_user_profile(child_id: str, message: str, response: str, age_ti
     try:
         profile = await get_or_create_user_profile(child_id)
         
-        analysis_client = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"profile_analysis_{child_id}_{uuid.uuid4().hex[:8]}",
+        analysis_text = await _anthropic_chat(
             system_message="""You analyze conversations between a child and a Bible guide to learn about the child.
 Return ONLY valid JSON with these fields:
 {
@@ -837,11 +847,9 @@ Return ONLY valid JSON with these fields:
   "strengths": ["any positive traits or growth shown"],
   "personality_note": "one sentence observation about the child (empty string if nothing new)"
 }
-If a field has nothing to add, use an empty list or empty string. Return ONLY the JSON."""
-        ).with_model("openai", "gpt-4o-mini")
-        
-        analysis_text = await analysis_client.send_message(
-            UserMessage(text=f"Child's message: {message}\nBible Buddy's response: {response}")
+If a field has nothing to add, use an empty list or empty string. Return ONLY the JSON.""",
+            user_text=f"Child's message: {message}\nBible Buddy's response: {response}",
+            max_tokens=400
         )
         
         # Parse the analysis
@@ -1047,7 +1055,7 @@ async def root():
 async def health_check():
     return {
         "status": "healthy",
-        "llm_configured": bool(EMERGENT_LLM_KEY),
+        "llm_configured": bool(ANTHROPIC_API_KEY),
         "tts_configured": bool(ELEVENLABS_API_KEY),
         "stt_configured": bool(DEEPGRAM_API_KEY),
         "knowledge_base_size": len(KNOWLEDGE_BASE)
@@ -1114,13 +1122,10 @@ async def chat(request_data: ChatRequest):
                                   "10-12": "a 10-12 year old pre-teen (more depth, 3-5 sentences)", 
                                   "13-18": "a teenager (mature mentor tone, 3-5 thoughtful sentences)"}
                     age_label = age_labels.get(request_data.age_tier, age_labels["7-9"])
-                    rephrase_client = LlmChat(
-                        api_key=EMERGENT_LLM_KEY,
-                        session_id=f"rephrase_{cache_key}",
-                        system_message="Rephrase this Bible answer for the specified age group. Keep facts and verses. Adapt language only. Return ONLY the rephrased text."
-                    ).with_model("openai", "gpt-4o-mini")
-                    response_text = await rephrase_client.send_message(
-                        UserMessage(text=f"For {age_label}:\n\n{kb_answer['answer']}")
+                    response_text = await _anthropic_chat(
+                        system_message="Rephrase this Bible answer for the specified age group. Keep facts and verses. Adapt language only. Return ONLY the rephrased text.",
+                        user_text=f"For {age_label}:\n\n{kb_answer['answer']}",
+                        max_tokens=400
                     )
                     _kb_cache[cache_key] = response_text
                     await db.kb_age_cache.insert_one({"cache_key": cache_key, "response": response_text, "age_tier": request_data.age_tier})
@@ -1170,14 +1175,11 @@ async def chat(request_data: ChatRequest):
             request_data.age_tier, preferred_translation, user_context, teacher_wisdom
         )
         
-        chat_client = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=request_data.session_id or str(uuid.uuid4()),
-            system_message=system_prompt
-        ).with_model("openai", "gpt-4o-mini")
-        
-        user_message = UserMessage(text=request_data.message)
-        response_text = await chat_client.send_message(user_message)
+        response_text = await _anthropic_chat(
+            system_message=system_prompt,
+            user_text=request_data.message,
+            max_tokens=600
+        )
         
     except Exception as e:
         logger.error(f"LLM Error: {e}")
@@ -1477,7 +1479,7 @@ email_routes.init(db, get_current_user)
 auth_routes.init(db, get_current_user)
 children_routes.init(db, get_current_user, VOICE_OPTIONS, ChildProfile, ChildProfileCreate)
 dashboard_routes.init(db, get_current_user, KNOWLEDGE_BASE, FEATURED_TEACHERS)
-verses_routes.init(db, DAILY_VERSES, LlmChat, UserMessage, EMERGENT_LLM_KEY)
+verses_routes.init(db, DAILY_VERSES, _anthropic_chat, None, ANTHROPIC_API_KEY)
 leaderboard_routes.init(db, get_current_user)
 
 # Include all routers
@@ -1576,13 +1578,10 @@ async def prewarm_kb_audio():
                         continue
                     try:
                         age_label = age_labels[tier]
-                        rephrase_client = LlmChat(
-                            api_key=EMERGENT_LLM_KEY,
-                            session_id=f"prewarm_{cache_key}",
-                            system_message="Rephrase this Bible answer for the specified age group. Keep facts and verses. Adapt language only. Return ONLY the rephrased text."
-                        ).with_model("openai", "gpt-4o-mini")
-                        response_text = await rephrase_client.send_message(
-                            UserMessage(text=f"For {age_label}:\n\n{item['answer']}")
+                        response_text = await _anthropic_chat(
+                            system_message="Rephrase this Bible answer for the specified age group. Keep facts and verses. Adapt language only. Return ONLY the rephrased text.",
+                            user_text=f"For {age_label}:\n\n{item['answer']}",
+                            max_tokens=400
                         )
                         _kb_cache[cache_key] = response_text
                         await db.kb_age_cache.insert_one({"cache_key": cache_key, "response": response_text, "age_tier": tier})

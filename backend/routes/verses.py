@@ -12,17 +12,15 @@ router = APIRouter(prefix="/api", tags=["verses"])
 db = None
 DAILY_VERSES = []
 WEEKLY_STORIES = []
-LlmChat = None
-UserMessage = None
-EMERGENT_LLM_KEY = ""
+_anthropic_chat = None
+ANTHROPIC_API_KEY = ""
 
-def init(database, verses, llm_chat_cls, user_msg_cls, llm_key):
-    global db, DAILY_VERSES, LlmChat, UserMessage, EMERGENT_LLM_KEY, WEEKLY_STORIES
+def init(database, verses, anthropic_chat_fn, _unused, llm_key):
+    global db, DAILY_VERSES, _anthropic_chat, ANTHROPIC_API_KEY, WEEKLY_STORIES
     db = database
     DAILY_VERSES = verses
-    LlmChat = llm_chat_cls
-    UserMessage = user_msg_cls
-    EMERGENT_LLM_KEY = llm_key
+    _anthropic_chat = anthropic_chat_fn
+    ANTHROPIC_API_KEY = llm_key
     from bible_stories import WEEKLY_STORIES as ws
     WEEKLY_STORIES = ws
 
@@ -70,13 +68,12 @@ async def get_verse_of_the_day(age_tier: str = "7-9"):
     try:
         age_labels = {"4-6": "a 4-6 year old child", "7-9": "a 7-9 year old child", "10-12": "a 10-12 year old", "13-18": "a teenager"}
         age_label = age_labels.get(age_tier, "a child")
-        chat_client = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"votd_{today_str}_{age_tier}",
-            system_message=f"You are Bible Buddy, a warm and loving Bible guide for children. Explain Bible verses in a way that {age_label} can understand. Keep it to 2-3 short, encouraging sentences."
-        ).with_model("openai", "gpt-4o")
         prompt = f'Explain this Bible verse for {age_label}: "{verse_data["verse"]}" ({verse_data["reference"]})'
-        explanation = await chat_client.send_message(UserMessage(text=prompt))
+        explanation = await _anthropic_chat(
+            system_message=f"You are Bible Buddy, a warm and loving Bible guide for children. Explain Bible verses in a way that {age_label} can understand. Keep it to 2-3 short, encouraging sentences.",
+            user_text=prompt,
+            max_tokens=200
+        )
     except Exception as e:
         logger.error(f"VOTD AI error: {e}")
         explanation = f"This verse reminds us about God's {verse_data['theme']}. Take a moment to think about what it means to you!"
@@ -228,9 +225,12 @@ async def get_story_of_the_week(age_tier: str = "7-9"):
         }
         age_label = age_labels.get(age_tier, "a child")
 
-        chat_client = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"story_{week_key}_{age_tier}",
+        prompt = (
+            f"Tell the Bible story: \"{story_data['title']}\" ({story_data['reference']}). "
+            f"Characters: {', '.join(story_data['characters'])}. "
+            f"Summary: {story_data['summary']}"
+        )
+        response = await _anthropic_chat(
             system_message=(
                 f"You are Bible Buddy, a master storyteller who brings Bible stories to life for {age_label}. "
                 "Tell the story in an engaging, vivid narrative style. Use dialogue where possible. "
@@ -239,14 +239,9 @@ async def get_story_of_the_week(age_tier: str = "7-9"):
                 "FORMAT:\n[STORY]\n(your narrative here, 4-8 paragraphs)\n\n"
                 "[QUESTIONS]\n1. (question)\n2. (question)\n3. (question)"
             ),
-        ).with_model("openai", "gpt-4o-mini")
-
-        prompt = (
-            f"Tell the Bible story: \"{story_data['title']}\" ({story_data['reference']}). "
-            f"Characters: {', '.join(story_data['characters'])}. "
-            f"Summary: {story_data['summary']}"
+            user_text=prompt,
+            max_tokens=1000
         )
-        response = await chat_client.send_message(UserMessage(text=prompt))
 
         # Parse response
         if "[QUESTIONS]" in response:
