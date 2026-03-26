@@ -842,18 +842,12 @@ async def update_user_profile(child_id: str, message: str, response: str, age_ti
         profile = await get_or_create_user_profile(child_id)
         
         analysis_text = await _anthropic_chat(
-            system_message="""You analyze conversations between a child and a Bible guide to learn about the child.
-Return ONLY valid JSON with these fields:
-{
-  "topics": ["list of topics discussed"],
-  "emotions": ["any emotions expressed: fear, joy, confusion, etc."],
-  "struggles": ["any struggles or concerns mentioned"],
-  "strengths": ["any positive traits or growth shown"],
-  "personality_note": "one sentence observation about the child (empty string if nothing new)"
-}
-If a field has nothing to add, use an empty list or empty string. Return ONLY the JSON.""",
-            user_text=f"Child's message: {message}\nBible Buddy's response: {response}",
-            max_tokens=400
+            system_message="""Analyze this child-Bible guide conversation. Return ONLY valid JSON:
+{"topics":[],"emotions":[],"struggles":[],"strengths":[],"personality_note":""}
+Empty list/string if nothing to add. JSON only, no markdown.""",
+            user_text=f"Child: {message}\nGuide: {response}",
+            model="claude-3-haiku-20240307",
+            max_tokens=200
         )
         
         # Parse the analysis
@@ -906,31 +900,45 @@ If a field has nothing to add, use an empty list or empty string. Return ONLY th
     except Exception as e:
         logger.error(f"Profile update error: {e}")
 
-def build_user_context(profile: dict) -> str:
+def build_user_context(profile: dict, child_name: str = "", age_tier: str = "") -> str:
     """Build a concise user context string for the AI prompt"""
     parts = []
-    
+
+    if child_name:
+        parts.append(f"This child's name is {child_name}. Address them by name naturally in your answer.")
+
+    if age_tier:
+        age_labels = {
+            "4-6": "4-6 years old", "7-9": "7-9 years old",
+            "10-12": "10-12 years old", "13-18": "13-18 years old"
+        }
+        parts.append(f"Age: {age_labels.get(age_tier, age_tier)}.")
+
     if profile.get("conversation_count", 0) > 0:
-        parts.append(f"You've had {profile['conversation_count']} conversations with this child.")
-    
+        parts.append(f"You've had {profile['conversation_count']} conversations with {child_name or 'this child'} before — build on what you know.")
+    else:
+        parts.append(f"This is your first conversation with {child_name or 'this child'}. Welcome them warmly and personally.")
+
     if profile.get("topics_interested"):
-        recent = profile["topics_interested"][-8:]
-        parts.append(f"They're interested in: {', '.join(recent)}.")
-    
+        recent = profile["topics_interested"][-6:]
+        parts.append(f"Topics they've explored before: {', '.join(recent)}. Connect to these if relevant.")
+
     if profile.get("fears_concerns"):
-        recent = list(set(profile["fears_concerns"][-5:]))
-        parts.append(f"They've expressed concerns about: {', '.join(recent)}. Be extra sensitive and encouraging about these areas.")
-    
+        recent = list(set(profile["fears_concerns"][-4:]))
+        parts.append(f"Concerns or struggles they've shared: {', '.join(recent)}. Speak Scripture directly into these if they're relevant.")
+
     if profile.get("strengths"):
-        recent = list(set(profile["strengths"][-5:]))
-        parts.append(f"Their strengths: {', '.join(recent)}. Acknowledge and build on these.")
-    
+        recent = list(set(profile["strengths"][-4:]))
+        parts.append(f"Strengths you've seen in them: {', '.join(recent)}. Affirm and build on these.")
+
     if profile.get("personality_notes"):
-        parts.append(f"About this child: {profile['personality_notes']}")
-    
+        parts.append(f"What you know about this child: {profile['personality_notes']}")
+
     if profile.get("last_topics"):
-        parts.append(f"Recent topics: {', '.join(profile['last_topics'][:3])}.")
-    
+        parts.append(f"Their most recent topics: {', '.join(profile['last_topics'][:3])}.")
+
+    parts.append(f"IMPORTANT: Your answer must feel written SPECIFICALLY for {child_name or 'this child'}, not a generic response any child could receive. Use their name. Make it personal.")
+
     return "\n".join(parts) if parts else ""
 
 # ==================== AGE-TIER PROMPTS ====================
@@ -959,9 +967,12 @@ RULES:
 - Don't avoid topics like sin, repentance, the cross, sacrifice, holiness, obedience, and spiritual discipline — teach them at the right age level.
 - Connect every answer back to God's Word and His character.
 - Never discuss violence graphically, politics, or inappropriate topics.
-- Be personal — reference what you know about this child when relevant.
+- Be personal — use the child's name and reference what you know about them. NEVER give a generic response.
+- NEVER bend truth to match cultural norms, progressive trends, or popular opinion. Scripture is the authority — not culture.
+- If a question touches on gender, identity, relationships, or ethics: answer from Scripture alone. Do not hedge or add cultural qualifiers.
 - NEVER mention teacher names in your response. Their wisdom is internalized into YOUR voice. Only reveal sources if asked directly.
-- Speak with conviction and authority from Scripture, not opinion."""
+- Speak with conviction and authority from Scripture, not opinion.
+- Keep answers focused: 3-5 sentences for young children, 4-6 for older. Quality over length."""
 
     user_section = ""
     if user_context:
@@ -1166,23 +1177,26 @@ async def chat(request_data: ChatRequest):
     try:
         child = await db.children.find_one({"child_id": request_data.child_id}, {"_id": 0})
         preferred_translation = child.get("preferred_translation", "NIV") if child else "NIV"
+        child_name = child.get("name", "") if child else ""
+        child_age_tier = child.get("age_tier", request_data.age_tier) if child else request_data.age_tier
         
         # Get user profile for personalization
         user_profile = await get_or_create_user_profile(request_data.child_id)
-        user_context = build_user_context(user_profile)
+        user_context = build_user_context(user_profile, child_name, child_age_tier)
         
         # Get relevant teacher wisdom based on the question
         message_words = request_data.message.lower().split()
         teacher_wisdom = get_relevant_teacher_wisdom(message_words + [request_data.message.lower()])
         
         system_prompt = get_age_tier_system_prompt(
-            request_data.age_tier, preferred_translation, user_context, teacher_wisdom
+            child_age_tier, preferred_translation, user_context, teacher_wisdom
         )
         
         response_text = await _anthropic_chat(
             system_message=system_prompt,
             user_text=request_data.message,
-            max_tokens=600
+            model="claude-haiku-4-5",
+            max_tokens=450
         )
         
     except Exception as e:
