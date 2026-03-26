@@ -8,7 +8,7 @@ elevenlabs==2.38.1
 aiohttp==3.9.3
 pydantic==2.6.1
 python-multipart==0.0.9
-bcrypt==4.1.2
+bcrypt==4.0.1
 starlette==0.36.3
 deepgram-sdk==6.0.1
 APScheduler==3.10.4
