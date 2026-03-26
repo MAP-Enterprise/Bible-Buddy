@@ -86,12 +86,23 @@ export default function ChatScreen() {
     ).start();
   }, []);
 
+  // Keep childId and ageTier in sync with activeChild from auth context
+  useEffect(() => {
+    if (activeChild?.child_id) setChildId(activeChild.child_id);
+    if (activeChild?.age_tier) setAgeTier(activeChild.age_tier);
+  }, [activeChild]);
+
   const loadSettings = async () => {
     try {
-      const savedAgeTier = await storage.getItem('ageTier');
-      const savedChildId = await storage.getItem('childId');
-      if (savedAgeTier) setAgeTier(savedAgeTier);
-      if (savedChildId) setChildId(savedChildId);
+      // Only fall back to storage if no active child from auth
+      if (!activeChild?.child_id) {
+        const savedChildId = await storage.getItem('childId');
+        if (savedChildId) setChildId(savedChildId);
+      }
+      if (!activeChild?.age_tier) {
+        const savedAgeTier = await storage.getItem('ageTier');
+        if (savedAgeTier) setAgeTier(savedAgeTier);
+      }
     } catch (error) {
       console.log('Settings load error:', error);
     }
@@ -112,9 +123,13 @@ export default function ChatScreen() {
     setIsLoading(true);
 
     try {
+      const token = await storage.getItem('authToken');
       const response = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           session_id: sessionId,
           child_id: childId,
